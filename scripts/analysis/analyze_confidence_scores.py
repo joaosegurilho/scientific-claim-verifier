@@ -22,7 +22,7 @@ import numpy as np
 
 def load_summary(summary_path: Path) -> Dict[str, Any]:
     """Load a summary.json file."""
-    with open(summary_path, 'r', encoding='utf-8') as f:
+    with open(summary_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -67,7 +67,7 @@ def analyze_confidence_accuracy(results: List[Dict]) -> Dict[str, Any]:
             threshold_analysis[f"conf>={threshold}"] = {
                 "count": len(high_conf),
                 "accuracy": sum(1 for r in high_conf if r["correct"]) / len(high_conf),
-                "avg_confidence": statistics.mean([r["confidence"] for r in high_conf])
+                "avg_confidence": statistics.mean([r["confidence"] for r in high_conf]),
             }
 
     return {
@@ -88,7 +88,7 @@ def analyze_confidence_accuracy(results: List[Dict]) -> Dict[str, Any]:
                 "count": len(incorrect_results),
                 "avg_confidence": statistics.mean(incorrect_confidences) if incorrect_confidences else 0,
                 "median_confidence": statistics.median(incorrect_confidences) if incorrect_confidences else 0,
-            }
+            },
         },
         "by_verdict": {
             verdict: {
@@ -116,7 +116,7 @@ def format_confidence_report(config_name: str, analysis: Dict[str, Any]) -> str:
 
     # Overall statistics
     overall = analysis["overall"]
-    lines.append(f"\nOVERALL CONFIDENCE STATISTICS:")
+    lines.append("\nOVERALL CONFIDENCE STATISTICS:")
     lines.append(f"  Mean: {overall['avg_confidence']:.2f}")
     lines.append(f"  Median: {overall['median_confidence']:.2f}")
     lines.append(f"  Std Dev: {overall['std_confidence']:.2f}")
@@ -124,21 +124,25 @@ def format_confidence_report(config_name: str, analysis: Dict[str, Any]) -> str:
 
     # Confidence by correctness
     by_correct = analysis["by_correctness"]
-    lines.append(f"\nCONFIDENCE BY CORRECTNESS:")
-    lines.append(f"  Correct predictions ({by_correct['correct']['count']}): "
-                f"avg={by_correct['correct']['avg_confidence']:.2f}, "
-                f"median={by_correct['correct']['median_confidence']:.2f}")
-    lines.append(f"  Incorrect predictions ({by_correct['incorrect']['count']}): "
-                f"avg={by_correct['incorrect']['avg_confidence']:.2f}, "
-                f"median={by_correct['incorrect']['median_confidence']:.2f}")
+    lines.append("\nCONFIDENCE BY CORRECTNESS:")
+    lines.append(
+        f"  Correct predictions ({by_correct['correct']['count']}): "
+        f"avg={by_correct['correct']['avg_confidence']:.2f}, "
+        f"median={by_correct['correct']['median_confidence']:.2f}"
+    )
+    lines.append(
+        f"  Incorrect predictions ({by_correct['incorrect']['count']}): "
+        f"avg={by_correct['incorrect']['avg_confidence']:.2f}, "
+        f"median={by_correct['incorrect']['median_confidence']:.2f}"
+    )
 
     # Calculate difference
-    if by_correct['correct']['count'] > 0 and by_correct['incorrect']['count'] > 0:
-        diff = by_correct['correct']['avg_confidence'] - by_correct['incorrect']['avg_confidence']
+    if by_correct["correct"]["count"] > 0 and by_correct["incorrect"]["count"] > 0:
+        diff = by_correct["correct"]["avg_confidence"] - by_correct["incorrect"]["avg_confidence"]
         lines.append(f"  Difference: {diff:+.2f} (correct - incorrect)")
 
     # Confidence by verdict
-    lines.append(f"\nCONFIDENCE BY VERDICT TYPE:")
+    lines.append("\nCONFIDENCE BY VERDICT TYPE:")
     for verdict, data in analysis["by_verdict"].items():
         lines.append(f"  {verdict}:")
         if data["correct_avg"] is not None:
@@ -148,11 +152,13 @@ def format_confidence_report(config_name: str, analysis: Dict[str, Any]) -> str:
 
     # Threshold analysis
     if analysis["threshold_analysis"]:
-        lines.append(f"\nACCURACY AT CONFIDENCE THRESHOLDS:")
+        lines.append("\nACCURACY AT CONFIDENCE THRESHOLDS:")
         for threshold, data in sorted(analysis["threshold_analysis"].items()):
-            lines.append(f"  {threshold}: {data['count']} predictions, "
-                        f"accuracy={data['accuracy']:.2%}, "
-                        f"avg_conf={data['avg_confidence']:.2f}")
+            lines.append(
+                f"  {threshold}: {data['count']} predictions, "
+                f"accuracy={data['accuracy']:.2%}, "
+                f"avg_conf={data['avg_confidence']:.2f}"
+            )
 
     return "\n".join(lines)
 
@@ -173,7 +179,7 @@ def create_confidence_visualizations(results: List[Dict], figures_dir: Path, con
 
     # Set style
     sns.set_style("whitegrid")
-    plt.rcParams['figure.dpi'] = 300
+    plt.rcParams["figure.dpi"] = 300
 
     # 1. Confidence distribution by correctness (Box plot)
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -182,24 +188,29 @@ def create_confidence_visualizations(results: List[Dict], figures_dir: Path, con
     incorrect_conf = [r["confidence"] for r in valid_results if not r["correct"]]
 
     data_to_plot = [correct_conf, incorrect_conf]
-    labels = ['Correct', 'Incorrect']
+    labels = ["Correct", "Incorrect"]
 
-    bp = ax.boxplot(data_to_plot, labels=labels, patch_artist=True,
-                    showmeans=True, meanprops=dict(marker='D', markerfacecolor='red', markersize=8))
+    bp = ax.boxplot(
+        data_to_plot,
+        labels=labels,
+        patch_artist=True,
+        showmeans=True,
+        meanprops=dict(marker="D", markerfacecolor="red", markersize=8),
+    )
 
     # Color boxes
-    colors = ['lightgreen', 'lightcoral']
-    for patch, color in zip(bp['boxes'], colors):
+    colors = ["lightgreen", "lightcoral"]
+    for patch, color in zip(bp["boxes"], colors):
         patch.set_facecolor(color)
 
-    ax.set_ylabel('Confidence Score', fontsize=14, fontweight='bold')
-    ax.set_xlabel('Prediction Correctness', fontsize=14, fontweight='bold')
-    ax.set_title(f'Confidence Score Distribution\n{config_name}', fontsize=16, fontweight='bold', pad=20)
+    ax.set_ylabel("Confidence Score", fontsize=14, fontweight="bold")
+    ax.set_xlabel("Prediction Correctness", fontsize=14, fontweight="bold")
+    ax.set_title(f"Confidence Score Distribution\n{config_name}", fontsize=16, fontweight="bold", pad=20)
     ax.set_ylim(0, 11)
-    ax.grid(axis='y', alpha=0.3)
+    ax.grid(axis="y", alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(figures_dir / "confidence_by_correctness.png", dpi=300, bbox_inches='tight')
+    plt.savefig(figures_dir / "confidence_by_correctness.png", dpi=300, bbox_inches="tight")
     plt.close()
 
     # 2. Accuracy vs Confidence Threshold
@@ -219,11 +230,10 @@ def create_confidence_visualizations(results: List[Dict], figures_dir: Path, con
             accuracies.append(0)
             counts.append(0)
 
-    ax.plot(thresholds, accuracies, marker='o', linewidth=2, markersize=8, color='#2E86AB')
-    ax.set_xlabel('Minimum Confidence Threshold', fontsize=14, fontweight='bold')
-    ax.set_ylabel('Accuracy (%)', fontsize=14, fontweight='bold')
-    ax.set_title('Accuracy at Different Confidence Thresholds',
-                 fontsize=16, fontweight='bold', pad=20)
+    ax.plot(thresholds, accuracies, marker="o", linewidth=2, markersize=8, color="#2E86AB")
+    ax.set_xlabel("Minimum Confidence Threshold", fontsize=14, fontweight="bold")
+    ax.set_ylabel("Accuracy (%)", fontsize=14, fontweight="bold")
+    ax.set_title("Accuracy at Different Confidence Thresholds", fontsize=16, fontweight="bold", pad=20)
     ax.set_xlim(0.5, 10.5)
     ax.set_ylim(0, 105)
     ax.grid(True, alpha=0.3)
@@ -231,59 +241,63 @@ def create_confidence_visualizations(results: List[Dict], figures_dir: Path, con
     # Add count annotations
     for i, (threshold, count) in enumerate(zip(thresholds, counts)):
         if count > 0:
-            ax.annotate(f'n={count}', xy=(threshold, accuracies[i]),
-                       xytext=(0, 10), textcoords='offset points',
-                       ha='center', fontsize=8, alpha=0.7)
+            ax.annotate(
+                f"n={count}",
+                xy=(threshold, accuracies[i]),
+                xytext=(0, 10),
+                textcoords="offset points",
+                ha="center",
+                fontsize=8,
+                alpha=0.7,
+            )
 
     plt.tight_layout()
-    plt.savefig(figures_dir / "accuracy_vs_confidence_threshold.png", dpi=300, bbox_inches='tight')
+    plt.savefig(figures_dir / "accuracy_vs_confidence_threshold.png", dpi=300, bbox_inches="tight")
     plt.close()
 
     # 3. Confidence by Verdict Type
     fig, ax = plt.subplots(figsize=(12, 6))
 
-    verdicts = ['SUPPORTS', 'REFUTES', 'INSUFFICIENT_EVIDENCE']
-    verdict_data = {v: {'correct': [], 'incorrect': []} for v in verdicts}
+    verdicts = ["SUPPORTS", "REFUTES", "INSUFFICIENT_EVIDENCE"]
+    verdict_data = {v: {"correct": [], "incorrect": []} for v in verdicts}
 
     for r in valid_results:
         verdict = r["predicted"]
         if verdict in verdict_data:
             if r["correct"]:
-                verdict_data[verdict]['correct'].append(r["confidence"])
+                verdict_data[verdict]["correct"].append(r["confidence"])
             else:
-                verdict_data[verdict]['incorrect'].append(r["confidence"])
+                verdict_data[verdict]["incorrect"].append(r["confidence"])
 
     x_pos = np.arange(len(verdicts))
     width = 0.35
 
-    correct_means = [np.mean(verdict_data[v]['correct']) if verdict_data[v]['correct'] else 0
-                     for v in verdicts]
-    incorrect_means = [np.mean(verdict_data[v]['incorrect']) if verdict_data[v]['incorrect'] else 0
-                       for v in verdicts]
+    correct_means = [np.mean(verdict_data[v]["correct"]) if verdict_data[v]["correct"] else 0 for v in verdicts]
+    incorrect_means = [np.mean(verdict_data[v]["incorrect"]) if verdict_data[v]["incorrect"] else 0 for v in verdicts]
 
-    bars1 = ax.bar(x_pos - width/2, correct_means, width, label='Correct', color='#06A77D')
-    bars2 = ax.bar(x_pos + width/2, incorrect_means, width, label='Incorrect', color='#D62246')
+    bars1 = ax.bar(x_pos - width / 2, correct_means, width, label="Correct", color="#06A77D")
+    bars2 = ax.bar(x_pos + width / 2, incorrect_means, width, label="Incorrect", color="#D62246")
 
-    ax.set_xlabel('Verdict Type', fontsize=14, fontweight='bold')
-    ax.set_ylabel('Average Confidence Score', fontsize=14, fontweight='bold')
-    ax.set_title(f'Average Confidence by Verdict Type\n{config_name}',
-                 fontsize=16, fontweight='bold', pad=20)
+    ax.set_xlabel("Verdict Type", fontsize=14, fontweight="bold")
+    ax.set_ylabel("Average Confidence Score", fontsize=14, fontweight="bold")
+    ax.set_title(f"Average Confidence by Verdict Type\n{config_name}", fontsize=16, fontweight="bold", pad=20)
     ax.set_xticks(x_pos)
-    ax.set_xticklabels(['SUPPORTS', 'REFUTES', 'INSUF. EVID.'], fontsize=11)
+    ax.set_xticklabels(["SUPPORTS", "REFUTES", "INSUF. EVID."], fontsize=11)
     ax.legend(fontsize=12)
     ax.set_ylim(0, 10)
-    ax.grid(axis='y', alpha=0.3)
+    ax.grid(axis="y", alpha=0.3)
 
     # Add value labels on bars
     for bars in [bars1, bars2]:
         for bar in bars:
             height = bar.get_height()
             if height > 0:
-                ax.text(bar.get_x() + bar.get_width()/2., height,
-                       f'{height:.1f}', ha='center', va='bottom', fontsize=9)
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2.0, height, f"{height:.1f}", ha="center", va="bottom", fontsize=9
+                )
 
     plt.tight_layout()
-    plt.savefig(figures_dir / "confidence_by_verdict.png", dpi=300, bbox_inches='tight')
+    plt.savefig(figures_dir / "confidence_by_verdict.png", dpi=300, bbox_inches="tight")
     plt.close()
 
     print(f"  Saved 3 confidence visualizations to {figures_dir}")
@@ -332,12 +346,13 @@ def main():
         except Exception as e:
             print(f"\nError processing {config_name}: {e}")
             import traceback
+
             traceback.print_exc()
             continue
 
     # Save detailed results to JSON
     output_file = results_dir / "confidence_analysis.json"
-    with open(output_file, 'w', encoding='utf-8') as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         json.dump(all_analyses, f, indent=2)
 
     print(f"\n{'='*80}")

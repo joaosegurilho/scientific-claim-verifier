@@ -9,7 +9,7 @@ import json
 from typing import List, Dict, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from scverifier.data.models import Paper, CredibilityScores
+    from scverifier.data.models import Paper
 
 
 class PaperDatabase:
@@ -34,7 +34,8 @@ class PaperDatabase:
     def _create_tables(self):
         """Create papers table if it doesn't exist."""
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS papers (
                 id TEXT PRIMARY KEY,
                 doi TEXT,
@@ -52,7 +53,8 @@ class PaperDatabase:
                 extracted_from TEXT,
                 credibility TEXT
             )
-        """)
+        """
+        )
 
         # Create indexes for common queries
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_papers_year ON papers(year)")
@@ -74,29 +76,32 @@ class PaperDatabase:
         full_text_json = json.dumps(paper.full_text)
         credibility_json = json.dumps(paper.credibility.to_dict()) if paper.credibility else None
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT OR REPLACE INTO papers (
                 id, doi, title, abstract, authors, year, citations,
                 url, pdf_url, source, has_pdf, pmc_id, full_text,
                 extracted_from, credibility
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            paper.id,
-            paper.doi,
-            paper.title,
-            paper.abstract,
-            authors_json,
-            paper.year,
-            paper.citations,
-            paper.url,
-            paper.pdf_url,
-            paper.source,
-            1 if paper.has_pdf else 0,
-            paper.pmc_id,
-            full_text_json,
-            paper.extracted_from,
-            credibility_json
-        ))
+        """,
+            (
+                paper.id,
+                paper.doi,
+                paper.title,
+                paper.abstract,
+                authors_json,
+                paper.year,
+                paper.citations,
+                paper.url,
+                paper.pdf_url,
+                paper.source,
+                1 if paper.has_pdf else 0,
+                paper.pmc_id,
+                full_text_json,
+                paper.extracted_from,
+                credibility_json,
+            ),
+        )
 
         self.conn.commit()
 
@@ -113,29 +118,32 @@ class PaperDatabase:
             full_text_json = json.dumps(paper.full_text)
             credibility_json = json.dumps(paper.credibility.to_dict()) if paper.credibility else None
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO papers (
                     id, doi, title, abstract, authors, year, citations,
                     url, pdf_url, source, has_pdf, pmc_id, full_text,
                     extracted_from, credibility
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                paper.id,
-                paper.doi,
-                paper.title,
-                paper.abstract,
-                authors_json,
-                paper.year,
-                paper.citations,
-                paper.url,
-                paper.pdf_url,
-                paper.source,
-                1 if paper.has_pdf else 0,
-                paper.pmc_id,
-                full_text_json,
-                paper.extracted_from,
-                credibility_json
-            ))
+            """,
+                (
+                    paper.id,
+                    paper.doi,
+                    paper.title,
+                    paper.abstract,
+                    authors_json,
+                    paper.year,
+                    paper.citations,
+                    paper.url,
+                    paper.pdf_url,
+                    paper.source,
+                    1 if paper.has_pdf else 0,
+                    paper.pmc_id,
+                    full_text_json,
+                    paper.extracted_from,
+                    credibility_json,
+                ),
+            )
 
         self.conn.commit()
 
@@ -212,34 +220,34 @@ class PaperDatabase:
         from scverifier.data.models import Paper, CredibilityScores
 
         # Deserialize JSON fields
-        authors = json.loads(row['authors']) if row['authors'] else []
-        full_text = json.loads(row['full_text']) if row['full_text'] else []
+        authors = json.loads(row["authors"]) if row["authors"] else []
+        full_text = json.loads(row["full_text"]) if row["full_text"] else []
 
         credibility = None
-        if row['credibility']:
-            credibility_dict = json.loads(row['credibility'])
+        if row["credibility"]:
+            credibility_dict = json.loads(row["credibility"])
             credibility = CredibilityScores.from_dict(credibility_dict)
 
         # Note: chunks and propositions are NOT stored in the database
         # They live in FAISS vector stores and will be empty here
         paper = Paper(
-            id=row['id'],
-            doi=row['doi'],
-            title=row['title'],
-            abstract=row['abstract'],
+            id=row["id"],
+            doi=row["doi"],
+            title=row["title"],
+            abstract=row["abstract"],
             authors=authors,
-            year=row['year'],
-            citations=row['citations'] if row['citations'] else 0,
-            url=row['url'] if row['url'] else "",
-            pdf_url=row['pdf_url'] if row['pdf_url'] else "",
-            source=row['source'] if row['source'] else "",
-            has_pdf=bool(row['has_pdf']),
-            pmc_id=row['pmc_id'],
+            year=row["year"],
+            citations=row["citations"] if row["citations"] else 0,
+            url=row["url"] if row["url"] else "",
+            pdf_url=row["pdf_url"] if row["pdf_url"] else "",
+            source=row["source"] if row["source"] else "",
+            has_pdf=bool(row["has_pdf"]),
+            pmc_id=row["pmc_id"],
             full_text=full_text,
-            extracted_from=row['extracted_from'] if row['extracted_from'] else "abstract",
+            extracted_from=row["extracted_from"] if row["extracted_from"] else "abstract",
             credibility=credibility,
             chunks=[],  # Will be populated from FAISS vector store
-            propositions=[]  # Will be populated from FAISS vector store
+            propositions=[],  # Will be populated from FAISS vector store
         )
 
         return paper

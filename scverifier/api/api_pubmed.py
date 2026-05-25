@@ -17,7 +17,7 @@ class PubMedAPI(API):
 
     def _make_request(self, endpoint: str, params: Dict, max_retries: int = 3, retry_delay: int = 2) -> str:
         """Make a request with rate limiting and retries.
-        
+
         Args:
             endpoint: API endpoint
             params: Query parameters
@@ -35,13 +35,14 @@ class PubMedAPI(API):
                 url = f"{self.base_url}/{endpoint}"
                 response = requests.get(url, params=params)
                 response.raise_for_status()
-                
+
                 content = response.text
-                content_type = response.headers.get('content-type', '').lower()
+                content_type = response.headers.get("content-type", "").lower()
 
                 # Check for maintenance page or HTML error pages
-                if ('<meta name="maintenance"' in content or 
-                    (content.startswith('<!DOCTYPE html>') or content.startswith('<html>'))):
+                if '<meta name="maintenance"' in content or (
+                    content.startswith("<!DOCTYPE html>") or content.startswith("<html>")
+                ):
                     if attempt < max_retries - 1:
                         print(f"PubMed appears to be in maintenance. Retrying in {retry_delay} seconds...")
                         time.sleep(retry_delay)
@@ -49,7 +50,7 @@ class PubMedAPI(API):
                     raise requests.RequestException("PubMed is currently under maintenance")
 
                 # Verify response format matches requested format
-                if 'json' in params.get('retmode', '') and 'json' not in content_type:
+                if "json" in params.get("retmode", "") and "json" not in content_type:
                     if attempt < max_retries - 1:
                         print(f"Expected JSON but got {content_type}. Retrying in {retry_delay} seconds...")
                         time.sleep(retry_delay)
@@ -64,7 +65,7 @@ class PubMedAPI(API):
                     time.sleep(retry_delay)
                 else:
                     raise
-                    
+
         # This should never be reached, but add it to satisfy type checker
         raise requests.RequestException("All retry attempts failed")
 
@@ -91,18 +92,18 @@ class PubMedAPI(API):
             search_result = self._make_request("esearch.fcgi", search_params)
 
             # Try to detect HTML error pages
-            if search_result.strip().startswith('<!DOCTYPE html>') or search_result.strip().startswith('<html>'):
+            if search_result.strip().startswith("<!DOCTYPE html>") or search_result.strip().startswith("<html>"):
                 print("PubMed returned an HTML page instead of JSON. The service might be experiencing issues.")
                 return []
 
             search_data = json.loads(search_result)
             pmids = search_data.get("esearchresult", {}).get("idlist", [])
-            
+
             if not pmids:
                 print(f"[PubMed] No results found for query: {query}")
             else:
                 print(f"[PubMed] Found {len(pmids)} results for query: {query}")
-            
+
         except requests.RequestException as e:
             print(f"[PubMed] Request failed: {str(e)}")
             return []
@@ -136,7 +137,7 @@ class PubMedAPI(API):
                 if pmid_elem is None or pmid_elem.text is None:
                     continue
                 pmid = pmid_elem.text
-                
+
                 title_elem = article.find(".//ArticleTitle")
                 title = "".join(title_elem.itertext()) if title_elem is not None else "No title"
 

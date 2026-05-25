@@ -38,7 +38,13 @@ class VerificationPipeline:
     # ======================== VERIFICATION WITH SEARCH ========================
 
     def verify_claim_with_search(
-        self, claim: str, max_papers: int = 30, use_full_text: bool = False, quality_claims: bool = True, max_props_per_paper: int = 5, max_propositions: int = Config.PROPOSITION_RETRIEVAL_K
+        self,
+        claim: str,
+        max_papers: int = 30,
+        use_full_text: bool = False,
+        quality_claims: bool = True,
+        max_props_per_paper: int = 5,
+        max_propositions: int = Config.PROPOSITION_RETRIEVAL_K,
     ) -> VerificationResult:
         """Verify a claim by searching for papers online, processing them, and verifying.
 
@@ -129,11 +135,24 @@ class VerificationPipeline:
 
         # Phase 3: Verify claim using all available evidence in KB
         print("\n  Phase 3: Verifying claim with all available evidence...")
-        return self._verify_with_kb_evidence(claim, search_queries, quality_claims=quality_claims, max_props_per_paper=max_props_per_paper, max_propositions=max_propositions)
+        return self._verify_with_kb_evidence(
+            claim,
+            search_queries,
+            quality_claims=quality_claims,
+            max_props_per_paper=max_props_per_paper,
+            max_propositions=max_propositions,
+        )
 
     # ======================== VERIFICATION FROM KB ONLY ========================
 
-    def verify_claim_from_kb(self, claim: str, quality_claims: bool = True, use_abstract_only: bool = False, max_props_per_paper: int = 5, max_propositions: int = 50) -> VerificationResult:
+    def verify_claim_from_kb(
+        self,
+        claim: str,
+        quality_claims: bool = True,
+        use_abstract_only: bool = False,
+        max_props_per_paper: int = 5,
+        max_propositions: int = 50,
+    ) -> VerificationResult:
         """Verify a claim using only existing knowledge base data.
 
         This method:
@@ -185,12 +204,25 @@ class VerificationPipeline:
 
         # Verify with KB evidence
         print("\n  Verifying claim with knowledge base evidence...")
-        return self._verify_with_kb_evidence(claim, search_queries, quality_claims=quality_claims, use_abstract_only=use_abstract_only, max_props_per_paper=max_props_per_paper, max_propositions=max_propositions)
+        return self._verify_with_kb_evidence(
+            claim,
+            search_queries,
+            quality_claims=quality_claims,
+            use_abstract_only=use_abstract_only,
+            max_props_per_paper=max_props_per_paper,
+            max_propositions=max_propositions,
+        )
 
     # ======================== INTERNAL VERIFICATION LOGIC ========================
 
     def _verify_with_kb_evidence(
-        self, claim: str, search_queries: dict, quality_claims: bool = True, use_abstract_only: bool = False, max_props_per_paper: int = 5, max_propositions: int = Config.PROPOSITION_RETRIEVAL_K
+        self,
+        claim: str,
+        search_queries: dict,
+        quality_claims: bool = True,
+        use_abstract_only: bool = False,
+        max_props_per_paper: int = 5,
+        max_propositions: int = Config.PROPOSITION_RETRIEVAL_K,
     ) -> VerificationResult:
         """Verify claim using evidence from knowledge base.
 

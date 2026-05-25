@@ -9,27 +9,31 @@ Usage:
 """
 
 import argparse
+import contextlib
+import io
 import json
 import sys
 import time
-from pathlib import Path
 from datetime import datetime
-import io
-import contextlib
+from pathlib import Path
 
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
+import seaborn as sns
 
-from scverifier.core.benchmarking.base import Benchmark, VerificationMethod, BenchmarkEvaluator
-from scverifier.core.benchmarking.scifact_benchmark import SciFact
+from scverifier.config.settings import Config
+from scverifier.core.agents.autonomous_agent import AutonomousClaimAgent
+from scverifier.core.benchmarking.base import (
+    Benchmark,
+    BenchmarkEvaluator,
+    VerificationMethod,
+)
 from scverifier.core.benchmarking.coverbench_benchmark import CoverBench
 from scverifier.core.benchmarking.healthver_benchmark import HealthVer
 from scverifier.core.benchmarking.msvec_benchmark import MSVEC
+from scverifier.core.benchmarking.scifact_benchmark import SciFact
 from scverifier.core.knowledge.knowledge_base import KnowledgeBase
-from scverifier.core.agents.autonomous_agent import AutonomousClaimAgent
 from scverifier.pipelines.verification_pipeline import VerificationPipeline
-from scverifier.config.settings import Config
 
 
 def detect_claim_status(run_dir: Path) -> tuple[set, set]:
@@ -67,7 +71,13 @@ def detect_claim_status(run_dir: Path) -> tuple[set, set]:
 class BenchmarkRunner:
     """Runner for executing benchmark evaluations with multiple verification methods."""
 
-    def __init__(self, benchmark: Benchmark, results_dir: Path, method: VerificationMethod, resume_dir: Path = None):
+    def __init__(
+        self,
+        benchmark: Benchmark,
+        results_dir: Path,
+        method: VerificationMethod,
+        resume_dir: Path = None,
+    ):
         self.benchmark = benchmark
         self.method = method
         self.results_dir = results_dir
@@ -95,8 +105,14 @@ class BenchmarkRunner:
         # Start timing
         start_time = time.time()
 
-        use_search = self.method in (VerificationMethod.AGENT_WITH_SEARCH, VerificationMethod.AGENTLESS_WITH_SEARCH)
-        use_agent = self.method in (VerificationMethod.AGENT, VerificationMethod.AGENT_WITH_SEARCH)
+        use_search = self.method in (
+            VerificationMethod.AGENT_WITH_SEARCH,
+            VerificationMethod.AGENTLESS_WITH_SEARCH,
+        )
+        use_agent = self.method in (
+            VerificationMethod.AGENT,
+            VerificationMethod.AGENT_WITH_SEARCH,
+        )
 
         # Collect model metadata
         self.model_metadata = {
@@ -109,9 +125,9 @@ class BenchmarkRunner:
             "agent_recursion_limit": Config.RECURSION_LIMIT,
         }
 
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"Running {self.benchmark.name} Benchmark")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
         print(f"Method: {self.method.value}")
         print(f"Model: {self.model_metadata['agent_model'] if use_agent else self.model_metadata['llm_model']}")
         print(f"Total items: {len(self.benchmark.items)}")
@@ -119,7 +135,7 @@ class BenchmarkRunner:
         print(f"Online search: {use_search}")
         if use_search:
             print(f"Max papers per claim: {max_papers}")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
         # Initialize KB
         kb = KnowledgeBase()
@@ -152,7 +168,10 @@ class BenchmarkRunner:
 
             for attempt in range(max_retries + 1):
                 try:
-                    with contextlib.redirect_stdout(log_buffer), contextlib.redirect_stderr(log_buffer):
+                    with (
+                        contextlib.redirect_stdout(log_buffer),
+                        contextlib.redirect_stderr(log_buffer),
+                    ):
                         if use_agent:
                             result = agent.verify_claim(item.claim, thread_id=f"bench_{item.claim_id}")
                         elif use_search:
@@ -163,7 +182,9 @@ class BenchmarkRunner:
 
                     item.result = result
                     successful += 1
-                    print(f"Verdict: {result.verdict} | Confidence: {result.confidence} | Correct: {result.verdict == item.expected_result}")
+                    print(
+                        f"Verdict: {result.verdict} | Confidence: {result.confidence} | Correct: {result.verdict == item.expected_result}"
+                    )
                     break  # Success, exit retry loop
 
                 except Exception as e:
@@ -192,15 +213,17 @@ class BenchmarkRunner:
 
             # Collect results - record ERROR for traceability, but metrics will treat as INSUFFICIENT_EVIDENCE
             if error_occurred:
-                results.append({
-                    "claim_id": item.claim_id,
-                    "claim": item.claim,
-                    "expected": item.expected_result,
-                    "predicted": "ERROR",
-                    "confidence": 0.0,
-                    "correct": False,
-                    "error_message": error_message,
-                })
+                results.append(
+                    {
+                        "claim_id": item.claim_id,
+                        "claim": item.claim,
+                        "expected": item.expected_result,
+                        "predicted": "ERROR",
+                        "confidence": 0.0,
+                        "correct": False,
+                        "error_message": error_message,
+                    }
+                )
             else:
                 result_dict = {
                     "claim_id": item.claim_id,
@@ -237,7 +260,14 @@ class BenchmarkRunner:
 
         # Compute metrics and save results
         metrics = self._compute_metrics(results, successful, failed)
-        self._save_summary(results, successful, failed, metrics, total_execution_time, avg_execution_time)
+        self._save_summary(
+            results,
+            successful,
+            failed,
+            metrics,
+            total_execution_time,
+            avg_execution_time,
+        )
         self._save_visualizations(metrics)
 
     def _merge_results(self, new_results: list) -> list:
@@ -283,11 +313,11 @@ class BenchmarkRunner:
             f.write(f"Method: {self.method.value}\n")
             f.write(f"Model: {self.model_metadata['agent_model'] if use_agent else self.model_metadata['llm_model']}\n")
             f.write(f"Temperature: {self.model_metadata['temperature']}\n")
-            f.write(f"{'='*70}\n\n")
+            f.write(f"{'=' * 70}\n\n")
             if log_content:
                 f.write(log_content)
             if item.result:
-                f.write(f"\n{'='*70}\nRESULT:\n")
+                f.write(f"\n{'=' * 70}\nRESULT:\n")
                 f.write(f"Verdict: {item.result.verdict}\n")
                 f.write(f"Confidence: {item.result.confidence}\n")
                 f.write(f"Reasoning: {item.result.reasoning}\n")
@@ -303,9 +333,9 @@ class BenchmarkRunner:
         ERROR predictions are treated as INSUFFICIENT_EVIDENCE for metric computation,
         but remain as ERROR in the results for traceability.
         """
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print("RESULTS")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
         print(f"Successful: {successful}, Failed: {failed}")
 
         metrics = None
@@ -314,10 +344,7 @@ class BenchmarkRunner:
             try:
                 # Extract predictions from results, treating ERROR as INSUFFICIENT_EVIDENCE
                 y_true = [r["expected"] for r in results]
-                y_pred = [
-                    "INSUFFICIENT_EVIDENCE" if r["predicted"] == "ERROR" else r["predicted"]
-                    for r in results
-                ]
+                y_pred = ["INSUFFICIENT_EVIDENCE" if r["predicted"] == "ERROR" else r["predicted"] for r in results]
 
                 metrics = BenchmarkEvaluator.compute_from_predictions(y_true, y_pred)
                 print(metrics.print_report(f"{self.benchmark.name} ({self.method.value})"))
@@ -327,11 +354,19 @@ class BenchmarkRunner:
             except ValueError as e:
                 print(f"Could not compute metrics: {e}")
                 correct = sum(1 for r in results if r["correct"])
-                print(f"Accuracy: {correct}/{total} = {correct/total:.2%}")
+                print(f"Accuracy: {correct}/{total} = {correct / total:.2%}")
 
         return metrics
 
-    def _save_summary(self, results, successful, failed, metrics, total_execution_time, avg_execution_time):
+    def _save_summary(
+        self,
+        results,
+        successful,
+        failed,
+        metrics,
+        total_execution_time,
+        avg_execution_time,
+    ):
         """Save summary JSON."""
         total = successful + failed
         # Count errors in results
@@ -387,7 +422,9 @@ class BenchmarkRunner:
         print(f"Total execution time: {format_time(total_execution_time)}")
         print(f"Average time per claim: {format_time(avg_execution_time)}")
         if token_stats:
-            print(f"Total tokens used: {token_stats['total_tokens']:,} (input: {token_stats['total_input_tokens']:,}, output: {token_stats['total_output_tokens']:,})")
+            print(
+                f"Total tokens used: {token_stats['total_tokens']:,} (input: {token_stats['total_input_tokens']:,}, output: {token_stats['total_output_tokens']:,})"
+            )
             print(f"Average tokens per claim: {token_stats['avg_tokens_per_claim']:.0f}")
 
     def _calculate_token_stats(self, results):
@@ -405,8 +442,12 @@ class BenchmarkRunner:
             "total_input_tokens": total_input,
             "total_output_tokens": total_output,
             "total_tokens": total_tokens,
-            "avg_input_tokens_per_claim": round(total_input / len(results_with_tokens), 2) if results_with_tokens else 0,
-            "avg_output_tokens_per_claim": round(total_output / len(results_with_tokens), 2) if results_with_tokens else 0,
+            "avg_input_tokens_per_claim": (
+                round(total_input / len(results_with_tokens), 2) if results_with_tokens else 0
+            ),
+            "avg_output_tokens_per_claim": (
+                round(total_output / len(results_with_tokens), 2) if results_with_tokens else 0
+            ),
             "avg_tokens_per_claim": round(total_tokens / len(results_with_tokens), 2) if results_with_tokens else 0,
             "claims_with_token_data": len(results_with_tokens),
         }
@@ -418,29 +459,40 @@ class BenchmarkRunner:
 
         # Confusion Matrix
         labels = sorted(metrics.confusion_matrix.keys())
-        
+
         # Abbreviated label names for better display
         label_mapping = {
             "INSUFFICIENT_EVIDENCE": "INSUF. EVID.",
             "REFUTES": "REFUTES",
-            "SUPPORTS": "SUPPORTS"
+            "SUPPORTS": "SUPPORTS",
         }
-        display_labels = [label_mapping.get(l, l) for l in labels]
-        
+        display_labels = [label_mapping.get(label, label) for label in labels]
+
         cm_array = np.array([[metrics.confusion_matrix[a].get(p, 0) for p in labels] for a in labels])
 
         plt.figure(figsize=(10, 8))
-        sns.heatmap(cm_array, annot=True, fmt='d', cmap='Blues',
-                    xticklabels=display_labels, yticklabels=display_labels,
-                    annot_kws={'size': 40},
-                    cbar_kws={'shrink': 0.8})
-        plt.xlabel('Predicted', fontsize=20, fontweight='bold')
-        plt.ylabel('Actual', fontsize=20, fontweight='bold')
-        plt.title(f'Confusion Matrix - {self.benchmark.name} ({self.method.value})', fontsize=22, fontweight='bold', pad=20)
-        plt.xticks(fontsize=16, rotation=45, ha='right')
+        sns.heatmap(
+            cm_array,
+            annot=True,
+            fmt="d",
+            cmap="Blues",
+            xticklabels=display_labels,
+            yticklabels=display_labels,
+            annot_kws={"size": 40},
+            cbar_kws={"shrink": 0.8},
+        )
+        plt.xlabel("Predicted", fontsize=20, fontweight="bold")
+        plt.ylabel("Actual", fontsize=20, fontweight="bold")
+        plt.title(
+            f"Confusion Matrix - {self.benchmark.name} ({self.method.value})",
+            fontsize=22,
+            fontweight="bold",
+            pad=20,
+        )
+        plt.xticks(fontsize=16, rotation=45, ha="right")
         plt.yticks(fontsize=16, rotation=0)
         plt.tight_layout()
-        plt.savefig(self.figures_dir / "confusion_matrix.png", dpi=300, bbox_inches='tight')
+        plt.savefig(self.figures_dir / "confusion_matrix.png", dpi=300, bbox_inches="tight")
         plt.close()
 
         # Label Distribution
@@ -448,19 +500,19 @@ class BenchmarkRunner:
 
         # Expected distribution
         expected = metrics.label_distribution_expected
-        axes[0].bar(expected.keys(), expected.values(), color='steelblue')
-        axes[0].set_title('Expected Labels')
-        axes[0].set_ylabel('Count')
-        axes[0].tick_params(axis='x', rotation=45)
+        axes[0].bar(expected.keys(), expected.values(), color="steelblue")
+        axes[0].set_title("Expected Labels")
+        axes[0].set_ylabel("Count")
+        axes[0].tick_params(axis="x", rotation=45)
 
         # Predicted distribution
         predicted = metrics.label_distribution_predicted
-        axes[1].bar(predicted.keys(), predicted.values(), color='coral')
-        axes[1].set_title('Predicted Labels')
-        axes[1].set_ylabel('Count')
-        axes[1].tick_params(axis='x', rotation=45)
+        axes[1].bar(predicted.keys(), predicted.values(), color="coral")
+        axes[1].set_title("Predicted Labels")
+        axes[1].set_ylabel("Count")
+        axes[1].tick_params(axis="x", rotation=45)
 
-        plt.suptitle(f'Label Distribution - {self.benchmark.name} ({self.method.value})')
+        plt.suptitle(f"Label Distribution - {self.benchmark.name} ({self.method.value})")
         plt.tight_layout()
         plt.savefig(self.figures_dir / "label_distribution.png", dpi=150)
         plt.close()
@@ -472,16 +524,28 @@ def main():
     parser = argparse.ArgumentParser(description="Run benchmark evaluation")
 
     parser.add_argument("dataset", choices=["scifact", "coverbench", "healthver", "msvec"])
-    parser.add_argument("--method", choices=["agent", "agentless", "agent_with_search", "agentless_with_search"],
-                        default="agentless")
+    parser.add_argument(
+        "--method",
+        choices=["agent", "agentless", "agent_with_search", "agentless_with_search"],
+        default="agentless",
+    )
     parser.add_argument("--max-items", type=int, help="Max items to evaluate")
-    parser.add_argument("--max-papers", type=int, default=10, help="Max papers per claim (for search methods)")
+    parser.add_argument(
+        "--max-papers",
+        type=int,
+        default=10,
+        help="Max papers per claim (for search methods)",
+    )
     parser.add_argument("--results-dir", default="./benchmark_results")
     parser.add_argument("--claims-file", type=str, help="Specific claims file (SciFact)")
     parser.add_argument("--scifact-split", choices=["train", "dev", "test"], help="SciFact split")
     parser.add_argument("--split", default="validation", help="Dataset split (HealthVer)")
     parser.add_argument("--data-dir", type=str, help="Data directory (MSVEC)")
-    parser.add_argument("--resume", type=str, help="Resume incomplete run from directory (e.g., benchmark_results/scifact_agent_20251214_221046)")
+    parser.add_argument(
+        "--resume",
+        type=str,
+        help="Resume incomplete run from directory (e.g., benchmark_results/scifact_agent_20251214_221046)",
+    )
 
     args = parser.parse_args()
 
@@ -496,9 +560,11 @@ def main():
     # Load benchmark
     try:
         if args.dataset == "scifact":
-            benchmark = SciFact(claims_file=args.claims_file,
-                                split=args.scifact_split if not args.claims_file else None,
-                                verification_method=method)
+            benchmark = SciFact(
+                claims_file=args.claims_file,
+                split=args.scifact_split if not args.claims_file else None,
+                verification_method=method,
+            )
             benchmark.load(max_items=args.max_items)
 
         elif args.dataset == "coverbench":
@@ -548,14 +614,14 @@ def main():
         # Filter benchmark items to only process incomplete/error claims
         benchmark.items = [item for item in benchmark.items if str(item.claim_id) in to_process]
 
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"RESUMING FROM: {resume_dir.name}")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
         print(f"Completed claims: {len(completed)}")
         print(f"Error claims to retry: {len(errors)}")
         print(f"Never attempted: {len(never_attempted)}")
         print(f"Total to process: {len(to_process)}")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
     # Run
     runner = BenchmarkRunner(benchmark, Path(args.results_dir), method, resume_dir=resume_dir)

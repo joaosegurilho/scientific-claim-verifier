@@ -9,11 +9,13 @@ This is the BOUNDARY LAYER between domain objects and LangChain.
 import os
 import pickle
 import time
-from typing import List, Dict, Any, Tuple, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
 from langchain_community.vectorstores import FAISS
 from langchain_ollama import OllamaEmbeddings
+
 from scverifier.config.settings import Config
-from scverifier.data.models import Proposition, Chunk
+from scverifier.data.models import Chunk, Proposition
 
 
 class RetrievalSystem:
@@ -66,7 +68,8 @@ class RetrievalSystem:
         # Internal work with Documents
         self.proposition_vectorstore = FAISS.from_documents(docs, self.embedding_model)
         self.proposition_retriever = self.proposition_vectorstore.as_retriever(
-            search_type="similarity", search_kwargs={"k": Config.PROPOSITION_RETRIEVAL_K}
+            search_type="similarity",
+            search_kwargs={"k": Config.PROPOSITION_RETRIEVAL_K},
         )
 
         # Track document IDs by paper for efficient deletion
@@ -148,7 +151,8 @@ class RetrievalSystem:
 
             # Update retriever with new configuration
             self.proposition_retriever = self.proposition_vectorstore.as_retriever(
-                search_type="similarity", search_kwargs={"k": Config.PROPOSITION_RETRIEVAL_K}
+                search_type="similarity",
+                search_kwargs={"k": Config.PROPOSITION_RETRIEVAL_K},
             )
 
             # Track document IDs for the newly added propositions
@@ -198,7 +202,10 @@ class RetrievalSystem:
                     self.paper_to_chunk_ids[paper_id] = []
                 # Find the document ID for this chunk
                 for doc_id, doc in self.chunk_vectorstore.docstore._dict.items():
-                    if doc.metadata.get("chunk_id") == chunk.chunk_id and doc_id not in self.paper_to_chunk_ids[paper_id]:
+                    if (
+                        doc.metadata.get("chunk_id") == chunk.chunk_id
+                        and doc_id not in self.paper_to_chunk_ids[paper_id]
+                    ):
                         self.paper_to_chunk_ids[paper_id].append(doc_id)
                         break
 
@@ -323,7 +330,9 @@ class RetrievalSystem:
         # Convert to domain objects at the boundary
         return [Proposition.from_langchain_document(doc) for doc in docs]
 
-    def query_propositions_with_scores(self, query: str, top_k: Optional[int] = None) -> List[Tuple[Proposition, float]]:
+    def query_propositions_with_scores(
+        self, query: str, top_k: Optional[int] = None
+    ) -> List[Tuple[Proposition, float]]:
         """Query propositions and return with similarity scores.
 
         Args:
@@ -360,39 +369,39 @@ class RetrievalSystem:
 
         return results
 
-    def query_chunks(self, query: str, top_k: Optional[int] = None) -> List[Chunk]:
-        """Query the chunk-based vector store for similar documents.
+    # def query_chunks(self, query: str, top_k: Optional[int] = None) -> List[Chunk]:
+    #     """Query the chunk-based vector store for similar documents.
 
-        Args:
-            query: Search query string
-            top_k: Optional number of results to return (overrides config default)
+    #     Args:
+    #         query: Search query string
+    #         top_k: Optional number of results to return (overrides config default)
 
-        Returns:
-            List of Chunk domain objects (converted at boundary)
+    #     Returns:
+    #         List of Chunk domain objects (converted at boundary)
 
-        Raises:
-            ValueError: If chunk vector store is not initialized
-        """
-        if self.chunk_retriever is None:
-            raise ValueError(
-                "Chunk vector store not initialized. "
-                "Call create_chunk_vectorstore or add_to_chunk_vectorstore first."
-            )
+    #     Raises:
+    #         ValueError: If chunk vector store is not initialized
+    #     """
+    #     if self.chunk_retriever is None:
+    #         raise ValueError(
+    #             "Chunk vector store not initialized. "
+    #             "Call create_chunk_vectorstore or add_to_chunk_vectorstore first."
+    #         )
 
-        # Use provided top_k or fall back to config default
-        k = top_k if top_k is not None else Config.CHUNK_RETRIEVAL_K
+    #     # Use provided top_k or fall back to config default
+    #     k = top_k if top_k is not None else Config.CHUNK_RETRIEVAL_K
 
-        # Create temporary retriever with custom k value if needed
-        if top_k is not None:
-            retriever = self.chunk_vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": k})
-        else:
-            retriever = self.chunk_retriever
+    #     # Create temporary retriever with custom k value if needed
+    #     if top_k is not None:
+    #         retriever = self.chunk_vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": k})
+    #     else:
+    #         retriever = self.chunk_retriever
 
-        # Internal retrieval returns Documents
-        docs = Config.retry_llm_call(lambda: retriever.invoke(query))
+    #     # Internal retrieval returns Documents
+    #     docs = Config.retry_llm_call(lambda: retriever.invoke(query))
 
-        # Convert to domain objects at the boundary
-        return [Chunk.from_langchain_document(doc) for doc in docs]
+    #     # Convert to domain objects at the boundary
+    #     return [Chunk.from_langchain_document(doc) for doc in docs]
 
     def query_chunks_with_scores(self, query: str, top_k: Optional[int] = None) -> List[Tuple[Chunk, float]]:
         """Query chunks and return with similarity scores.
@@ -519,12 +528,18 @@ class RetrievalSystem:
         stats = {}
 
         if self.proposition_vectorstore:
-            stats["propositions"] = {"count": len(self.proposition_vectorstore.docstore._dict), "initialized": True}
+            stats["propositions"] = {
+                "count": len(self.proposition_vectorstore.docstore._dict),
+                "initialized": True,
+            }
         else:
             stats["propositions"] = {"count": 0, "initialized": False}
 
         if self.chunk_vectorstore:
-            stats["chunks"] = {"count": len(self.chunk_vectorstore.docstore._dict), "initialized": True}
+            stats["chunks"] = {
+                "count": len(self.chunk_vectorstore.docstore._dict),
+                "initialized": True,
+            }
         else:
             stats["chunks"] = {"count": 0, "initialized": False}
 
@@ -587,11 +602,11 @@ class RetrievalSystem:
 
             # Save ID mapping
             mapping_path = proposition_path + "_id_mapping.pkl"
-            with open(mapping_path, 'wb') as f:
+            with open(mapping_path, "wb") as f:
                 pickle.dump(self.paper_to_prop_ids, f)
 
             t1 = time.time()
-            print(f"     Proposition vectorstore saved: {t1-t0:.2f}s")
+            print(f"     Proposition vectorstore saved: {t1 - t0:.2f}s")
 
         if chunk_path and self.chunk_vectorstore:
             chunk_count = len(self.chunk_vectorstore.docstore._dict)
@@ -601,11 +616,11 @@ class RetrievalSystem:
 
             # Save ID mapping
             mapping_path = chunk_path + "_id_mapping.pkl"
-            with open(mapping_path, 'wb') as f:
+            with open(mapping_path, "wb") as f:
                 pickle.dump(self.paper_to_chunk_ids, f)
 
             t1 = time.time()
-            print(f"     Chunk vectorstore saved: {t1-t0:.2f}s")
+            print(f"     Chunk vectorstore saved: {t1 - t0:.2f}s")
 
     def load_vectorstores(self, proposition_path: str = None, chunk_path: str = None):
         """Load vector stores from disk.
@@ -616,16 +631,19 @@ class RetrievalSystem:
         """
         if proposition_path:
             self.proposition_vectorstore = FAISS.load_local(
-                proposition_path, self.embedding_model, allow_dangerous_deserialization=True
+                proposition_path,
+                self.embedding_model,
+                allow_dangerous_deserialization=True,
             )
             self.proposition_retriever = self.proposition_vectorstore.as_retriever(
-                search_type="similarity", search_kwargs={"k": Config.PROPOSITION_RETRIEVAL_K}
+                search_type="similarity",
+                search_kwargs={"k": Config.PROPOSITION_RETRIEVAL_K},
             )
 
             # Load ID mapping if it exists
             mapping_path = proposition_path + "_id_mapping.pkl"
             if os.path.exists(mapping_path):
-                with open(mapping_path, 'rb') as f:
+                with open(mapping_path, "rb") as f:
                     self.paper_to_prop_ids = pickle.load(f)
             else:
                 # Fallback: rebuild mapping from vectorstore
@@ -650,7 +668,7 @@ class RetrievalSystem:
             # Load ID mapping if it exists
             mapping_path = chunk_path + "_id_mapping.pkl"
             if os.path.exists(mapping_path):
-                with open(mapping_path, 'rb') as f:
+                with open(mapping_path, "rb") as f:
                     self.paper_to_chunk_ids = pickle.load(f)
             else:
                 # Fallback: rebuild mapping from vectorstore

@@ -102,8 +102,9 @@ class TimelineGenerator:
 
         return f"rgb({red}, {green}, {blue})"
 
-    def generate_bar_chart(self, year_data: Dict[int, Dict[str, Any]], query: str,
-                          total_props_by_year: Dict[int, int] = None) -> str:
+    def generate_bar_chart(
+        self, year_data: Dict[int, Dict[str, Any]], query: str, total_props_by_year: Dict[int, int] = None
+    ) -> str:
         """Generate interactive Plotly bar chart HTML with dual y-axes for better visibility.
 
         Uses dual y-axes:
@@ -148,15 +149,13 @@ class TimelineGenerator:
                 go.Bar(
                     x=years,
                     y=total_counts,
-                    name='Total Propositions',
-                    marker=dict(
-                        color='rgba(200,200,200,0.3)',
-                        line=dict(color='rgba(150,150,150,0.5)', width=1)
-                    ),
-                    hovertext=[f"Year: {year}<br>Total Propositions: {total_props_by_year.get(year, 0)}"
-                              for year in years],
-                    hoverinfo='text',
-                    yaxis='y2'  # Use secondary y-axis
+                    name="Total Propositions",
+                    marker=dict(color="rgba(200,200,200,0.3)", line=dict(color="rgba(150,150,150,0.5)", width=1)),
+                    hovertext=[
+                        f"Year: {year}<br>Total Propositions: {total_props_by_year.get(year, 0)}" for year in years
+                    ],
+                    hoverinfo="text",
+                    yaxis="y2",  # Use secondary y-axis
                 )
             )
 
@@ -165,11 +164,11 @@ class TimelineGenerator:
             go.Bar(
                 x=years,
                 y=counts,
-                name='Relevant Propositions',
+                name="Relevant Propositions",
                 marker=dict(color=colors, line=dict(color="rgba(0,0,0,0.2)", width=1)),
                 hovertext=hover_text,
                 hoverinfo="text",
-                yaxis='y1'  # Use primary y-axis
+                yaxis="y1",  # Use primary y-axis
             )
         )
 
@@ -185,22 +184,22 @@ class TimelineGenerator:
             yaxis=dict(
                 title="Relevant Propositions",
                 # titlefont=dict(color="rgb(55, 126, 184)"),
-                tickfont=dict(color="rgb(55, 126, 184)")
+                tickfont=dict(color="rgb(55, 126, 184)"),
             ),
             yaxis2=dict(
                 title="Total Propositions",
                 # titlefont=dict(color="rgb(150, 150, 150)"),
                 tickfont=dict(color="rgb(150, 150, 150)"),
-                overlaying='y',
-                side='right'
+                overlaying="y",
+                side="right",
             ),
             hovermode="closest",
             plot_bgcolor="rgba(240,240,240,0.5)",
             height=500,
             margin=dict(l=60, r=220, t=80, b=80),
-            barmode='overlay',
+            barmode="overlay",
             showlegend=True,
-            legend=dict(x=0.02, y=0.98, bgcolor="rgba(255,255,255,0.8)")
+            legend=dict(x=0.02, y=0.98, bgcolor="rgba(255,255,255,0.8)"),
         )
 
         # Add color scale legend on the right side
@@ -254,25 +253,26 @@ class TimelineGenerator:
         # Create line chart
         fig = go.Figure()
 
-        fig.add_trace(go.Scatter(
-            x=years,
-            y=cumulative_counts,
-            mode='lines+markers',
-            name='Cumulative Propositions',
-            line=dict(color='rgb(55, 126, 184)', width=3),
-            marker=dict(size=8, color='rgb(55, 126, 184)'),
-            fill='tozeroy',
-            fillcolor='rgba(55, 126, 184, 0.2)',
-            hovertemplate='Year: %{x}<br>Cumulative: %{y}<extra></extra>'
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=years,
+                y=cumulative_counts,
+                mode="lines+markers",
+                name="Cumulative Propositions",
+                line=dict(color="rgb(55, 126, 184)", width=3),
+                marker=dict(size=8, color="rgb(55, 126, 184)"),
+                fill="tozeroy",
+                fillcolor="rgba(55, 126, 184, 0.2)",
+                hovertemplate="Year: %{x}<br>Cumulative: %{y}<extra></extra>",
+            )
+        )
 
         fig.update_layout(
-            title=dict(text=f"Cumulative Evidence Over Time for: '{query}'", x=0.5, xanchor="center", font=dict(size=18)),
+            title=dict(
+                text=f"Cumulative Evidence Over Time for: '{query}'", x=0.5, xanchor="center", font=dict(size=18)
+            ),
             xaxis=dict(
-                title="Year of Publication",
-                tickmode="linear",
-                tick0=min(years),
-                dtick=1 if len(years) <= 20 else 2
+                title="Year of Publication", tickmode="linear", tick0=min(years), dtick=1 if len(years) <= 20 else 2
             ),
             yaxis=dict(title="Cumulative Number of Propositions"),
             hovermode="closest",
@@ -283,9 +283,11 @@ class TimelineGenerator:
 
         return fig.to_html(full_html=False, include_plotlyjs="cdn")
 
-    def generate_heatmap(self, year_data: Dict[int, Dict[str, Any]], papers: Dict[str, Any], query: str, top_n: int = 20) -> str:
+    def generate_heatmap(
+        self, year_data: Dict[int, Dict[str, Any]], papers: Dict[str, Any], query: str, top_n: int = 20
+    ) -> str:
         """Generate horizontal bar chart showing top papers by similarity.
-        
+
         Each paper appears as a horizontal bar where:
         - Y-axis: Paper title and year
         - X-axis: Average similarity score
@@ -306,11 +308,11 @@ class TimelineGenerator:
 
         # Calculate stats for each paper
         paper_info = {}  # paper_id -> {year, avg_similarity, prop_count, title}
-        
+
         for year, data in year_data.items():
             for prop, score in data["propositions"]:
                 paper_id = prop.paper_id
-                
+
                 if paper_id not in paper_info:
                     paper = papers.get(paper_id)
                     if paper:
@@ -318,9 +320,9 @@ class TimelineGenerator:
                             "year": paper.year,
                             "title": paper.title,
                             "total_similarity": 0.0,
-                            "prop_count": 0
+                            "prop_count": 0,
                         }
-                
+
                 if paper_id in paper_info:
                     paper_info[paper_id]["total_similarity"] += score
                     paper_info[paper_id]["prop_count"] += 1
@@ -331,11 +333,7 @@ class TimelineGenerator:
             paper_info[paper_id]["avg_similarity"] = paper_info[paper_id]["total_similarity"] / count
 
         # Get top N papers by average similarity
-        sorted_papers = sorted(
-            paper_info.items(), 
-            key=lambda x: x[1]["avg_similarity"], 
-            reverse=True
-        )[:top_n]
+        sorted_papers = sorted(paper_info.items(), key=lambda x: x[1]["avg_similarity"], reverse=True)[:top_n]
 
         if not sorted_papers:
             return "<p>No data available for visualization.</p>"
@@ -350,10 +348,10 @@ class TimelineGenerator:
             # Truncate title for y-axis label
             title = info["title"][:60] + "..." if len(info["title"]) > 60 else info["title"]
             paper_labels.append(f"{title}<br>({info['year']}) - {info['prop_count']} props")
-            
+
             similarities.append(info["avg_similarity"])
             colors.append(self.similarity_to_color(info["avg_similarity"], 0.0, 1.0))
-            
+
             # Full title for hover
             full_title = info["title"]
             hover_texts.append(
@@ -364,47 +362,42 @@ class TimelineGenerator:
             )
 
         # Create horizontal bar chart (reverse so highest is on top)
-        fig = go.Figure(data=go.Bar(
-            x=similarities,
-            y=paper_labels,
-            orientation='h',
-            marker=dict(
-                color=colors,
-                line=dict(color='rgba(0,0,0,0.2)', width=1)
-            ),
-            hovertext=hover_texts,
-            hoverinfo='text'
-        ))
+        fig = go.Figure(
+            data=go.Bar(
+                x=similarities,
+                y=paper_labels,
+                orientation="h",
+                marker=dict(color=colors, line=dict(color="rgba(0,0,0,0.2)", width=1)),
+                hovertext=hover_texts,
+                hoverinfo="text",
+            )
+        )
 
         fig.update_layout(
             title=dict(
-                text=f"Top {len(sorted_papers)} Papers by Similarity for: '{query}'", 
-                x=0.5, 
-                xanchor="center", 
-                font=dict(size=18)
+                text=f"Top {len(sorted_papers)} Papers by Similarity for: '{query}'",
+                x=0.5,
+                xanchor="center",
+                font=dict(size=18),
             ),
-            xaxis=dict(
-                title="Average Similarity Score",
-                range=[0, 1],
-                gridcolor='rgba(200,200,200,0.3)'
-            ),
-            yaxis=dict(
-                title="",
-                autorange="reversed"  # Highest similarity at top
-            ),
+            xaxis=dict(title="Average Similarity Score", range=[0, 1], gridcolor="rgba(200,200,200,0.3)"),
+            yaxis=dict(title="", autorange="reversed"),  # Highest similarity at top
             plot_bgcolor="rgba(240,240,240,0.5)",
             height=max(500, len(sorted_papers) * 45),  # Increased spacing between bars
             margin=dict(l=350, r=80, t=100, b=80),
             bargap=0.3,  # Add gap between bars for better separation
-            hovermode='closest',
-            showlegend=False
+            hovermode="closest",
+            showlegend=False,
         )
 
         return fig.to_html(full_html=False, include_plotlyjs="cdn")
 
     def generate_visualization_data(
-        self, query: str, propositions_with_scores: List[Tuple[Proposition, float]],
-        papers: Dict[str, Any], total_props_by_year: Dict[int, int] = None
+        self,
+        query: str,
+        propositions_with_scores: List[Tuple[Proposition, float]],
+        papers: Dict[str, Any],
+        total_props_by_year: Dict[int, int] = None,
     ) -> Dict[str, Any]:
         """Generate complete visualization data including all charts and summary.
 
@@ -449,5 +442,5 @@ class TimelineGenerator:
             "cumulative_html": cumulative_html,
             "heatmap_html": heatmap_html,
             "year_data": year_data,
-            "summary": summary
+            "summary": summary,
         }

@@ -58,18 +58,18 @@ def print_search_results(results, query: str, result_type: str = "propositions")
 def _print_proposition(index: int, prop: Proposition):
     """Print a single proposition with details."""
     # Updated field access for Proposition
-    quality_score = prop.evaluation.average_score() if hasattr(prop, 'evaluation') and prop.evaluation else 0
+    quality_score = prop.evaluation.average_score() if hasattr(prop, "evaluation") and prop.evaluation else 0
     quality_bar = "★" * int(quality_score / 2)
-    quality_status = "QUALITY" if hasattr(prop, 'is_high_quality') and prop.is_high_quality() else "✗ LOW QUALITY"
+    quality_status = "QUALITY" if hasattr(prop, "is_high_quality") and prop.is_high_quality() else "✗ LOW QUALITY"
 
     print(f"   {index}. {getattr(prop, 'text', '[no text]')}")
     print(f"      Proposition ID: {getattr(prop, 'prop_id', '[no prop_id]')}")
     print(f"      Chunk ID: {getattr(prop, 'chunk_id', '[no chunk_id]')}")
     print(f"      Paper ID: {getattr(prop, 'paper_id', '[no paper_id]')}")
     print(f"      Source: {getattr(prop, 'source', '[no source]')}")
-    if hasattr(prop, 'page') and prop.page:
+    if hasattr(prop, "page") and prop.page:
         print(f"      Page: {prop.page}")
-    if hasattr(prop, 'evaluation') and prop.evaluation:
+    if hasattr(prop, "evaluation") and prop.evaluation:
         print(f"      Quality: {quality_score:.1f}/10 {quality_bar} ({quality_status})")
         print(
             f"      Scores: A{prop.evaluation.accuracy} C{prop.evaluation.clarity} "
@@ -81,11 +81,13 @@ def _print_proposition(index: int, prop: Proposition):
 def _print_chunk(index: int, chunk: Chunk):
     """Print a single chunk with details."""
     # Updated field access for Chunk
-    print(f"   {index}. {getattr(chunk, 'text', '[no text]')[:200]}{'...' if len(getattr(chunk, 'text', '')) > 200 else ''}")
+    print(
+        f"   {index}. {getattr(chunk, 'text', '[no text]')[:200]}{'...' if len(getattr(chunk, 'text', '')) > 200 else ''}"
+    )
     print(f"      Chunk ID: {getattr(chunk, 'chunk_id', '[no chunk_id]')}")
     print(f"      Paper ID: {getattr(chunk, 'paper_id', '[no paper_id]')}")
     print(f"      Source: {getattr(chunk, 'source', '[no source]')}")
-    if hasattr(chunk, 'page') and chunk.page:
+    if hasattr(chunk, "page") and chunk.page:
         print(f"      Page: {chunk.page}")
     print(f"      Length: {len(getattr(chunk, 'text', ''))} characters")
     print()
@@ -123,7 +125,7 @@ def print_paper_details(paper: Paper, kb: KnowledgeBase):
     print(f"   Chunks: {stats['chunks']}")
     print(f"   Propositions: {stats['propositions_quality']} quality / {stats['propositions_total']} total")
     print(f"   Success rate: {stats['success_rate']*100:.1f}%")
-    if hasattr(paper, 'credibility') and paper.credibility:
+    if hasattr(paper, "credibility") and paper.credibility:
         # Extract credibility rating
         cred_value = paper.credibility.rating
         stars = "★" * int(round(cred_value))
@@ -164,7 +166,7 @@ def list_papers(kb: KnowledgeBase, show_details: bool = False):
                 print(f"           (and {len(paper.authors) - 3} more)")
             print(f"   Propositions: {stats['propositions_quality']} quality / {stats['propositions_total']} total")
             print(f"   Success rate: {stats['success_rate']*100:.1f}%")
-            if hasattr(paper, 'credibility') and paper.credibility:
+            if hasattr(paper, "credibility") and paper.credibility:
                 cred_value = paper.credibility.rating
                 stars = "★" * int(round(cred_value))
                 print(f"   Credibility: {cred_value:.1f}/5 {stars}")
@@ -210,19 +212,19 @@ def show_all_propositions(kb: KnowledgeBase, quality_only: bool = False):
 
     for paper_id, propositions in papers_dict.items():
         paper = kb.get_paper(paper_id)  # type: ignore[assignment]
-        title = paper.title if paper is not None and hasattr(paper, 'title') else paper_id
+        title = paper.title if paper is not None and hasattr(paper, "title") else paper_id
         print(f"\n {title}:")
         print(f"   {len(propositions)} propositions\n")
 
         for i, prop in enumerate(propositions, 1):
-            quality_score = prop.evaluation.average_score() if hasattr(prop, 'evaluation') and prop.evaluation else 0
-            quality_status = "✓" if hasattr(prop, 'is_high_quality') and prop.is_high_quality() else "✗"
+            quality_score = prop.evaluation.average_score() if hasattr(prop, "evaluation") and prop.evaluation else 0
+            quality_status = "✓" if hasattr(prop, "is_high_quality") and prop.is_high_quality() else "✗"
 
             print(f"   {i}. {quality_status} {getattr(prop, 'text', '[no text]')}")
             print(f"      Proposition ID: {getattr(prop, 'prop_id', '[no prop_id]')}")
             print(f"      Chunk ID: {getattr(prop, 'chunk_id', '[no chunk_id]')}")
             print(f"      Paper ID: {getattr(prop, 'paper_id', '[no paper_id]')}")
-            if hasattr(prop, 'evaluation') and prop.evaluation:
+            if hasattr(prop, "evaluation") and prop.evaluation:
                 print(
                     f"      Scores: A{prop.evaluation.accuracy} C{prop.evaluation.clarity} "
                     f"Co{prop.evaluation.completeness} Cn{prop.evaluation.conciseness} "
@@ -258,20 +260,24 @@ def show_chunks_for_paper(kb: KnowledgeBase, paper_id: str):
 
     for i, chunk in enumerate(chunks, 1):
         print(f"   {i}. Chunk ID: {getattr(chunk, 'chunk_id', '[no chunk_id]')}")
-        if hasattr(chunk, 'page') and chunk.page:
+        if hasattr(chunk, "page") and chunk.page:
             print(f"      Page: {chunk.page}")
-        print(f"      Text: {getattr(chunk, 'text', '[no text]')[:200]}{'...' if len(getattr(chunk, 'text', '')) > 200 else ''}")
+        print(
+            f"      Text: {getattr(chunk, 'text', '[no text]')[:200]}{'...' if len(getattr(chunk, 'text', '')) > 200 else ''}"
+        )
         print(f"      Length: {len(getattr(chunk, 'text', ''))} characters")
         print(f"      Paper ID: {getattr(chunk, 'paper_id', '[no paper_id]')}")
         print(f"      Source: {getattr(chunk, 'source', '[no source]')}")
         print()
 
         # Show propositions from this chunk
-        chunk_propositions = [p for p in paper.propositions if getattr(p, 'chunk_id', None) == getattr(chunk, 'chunk_id', None)]
+        chunk_propositions = [
+            p for p in paper.propositions if getattr(p, "chunk_id", None) == getattr(chunk, "chunk_id", None)
+        ]
         if chunk_propositions:
             print(f"       Propositions from this chunk ({len(chunk_propositions)}):")
             for j, prop in enumerate(chunk_propositions, 1):
-                quality_status = "✓" if hasattr(prop, 'is_high_quality') and prop.is_high_quality() else "✗"
+                quality_status = "✓" if hasattr(prop, "is_high_quality") and prop.is_high_quality() else "✗"
                 print(f"         {j}. {quality_status} {getattr(prop, 'text', '[no text]')}")
                 print(f"            Proposition ID: {getattr(prop, 'prop_id', '[no prop_id]')}")
             print()
@@ -287,7 +293,7 @@ def show_proposition_context(kb: KnowledgeBase, chunk_id: str):
     # Find the paper and chunk
     for paper in kb.list_papers():
         for chunk in paper.chunks:
-            if getattr(chunk, 'chunk_id', None) == chunk_id:
+            if getattr(chunk, "chunk_id", None) == chunk_id:
                 print(f"\n{'='*70}")
                 print(f" Context for Chunk: {chunk_id}")
                 print(f"   Paper: {getattr(paper, 'title', '[no title]')}")
@@ -296,21 +302,27 @@ def show_proposition_context(kb: KnowledgeBase, chunk_id: str):
                 print(" Full Chunk Text:")
                 print(f"   {getattr(chunk, 'text', '[no text]')}")
                 print(f"\n   Length: {len(getattr(chunk, 'text', ''))} characters")
-                if hasattr(chunk, 'page') and chunk.page:
+                if hasattr(chunk, "page") and chunk.page:
                     print(f"   Page: {chunk.page}")
 
                 # Show propositions from this chunk
-                chunk_propositions = [p for p in paper.propositions if getattr(p, 'chunk_id', None) == chunk_id]
+                chunk_propositions = [p for p in paper.propositions if getattr(p, "chunk_id", None) == chunk_id]
                 if chunk_propositions:
                     print(f"\n Propositions extracted from this chunk ({len(chunk_propositions)}):")
                     for i, prop in enumerate(chunk_propositions, 1):
-                        quality_score = prop.evaluation.average_score() if hasattr(prop, 'evaluation') and prop.evaluation else 0
-                        quality_status = "QUALITY" if hasattr(prop, 'is_high_quality') and prop.is_high_quality() else "✗ LOW QUALITY"
+                        quality_score = (
+                            prop.evaluation.average_score() if hasattr(prop, "evaluation") and prop.evaluation else 0
+                        )
+                        quality_status = (
+                            "QUALITY"
+                            if hasattr(prop, "is_high_quality") and prop.is_high_quality()
+                            else "✗ LOW QUALITY"
+                        )
 
                         print(f"\n   {i}. {getattr(prop, 'text', '[no text]')}")
                         print(f"      Proposition ID: {getattr(prop, 'prop_id', '[no prop_id]')}")
                         print(f"      {quality_status} (Score: {quality_score:.1f}/10)")
-                        if hasattr(prop, 'evaluation') and prop.evaluation:
+                        if hasattr(prop, "evaluation") and prop.evaluation:
                             print(
                                 f"      Accuracy: {prop.evaluation.accuracy}/10, "
                                 f"Clarity: {prop.evaluation.clarity}/10, "

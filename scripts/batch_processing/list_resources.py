@@ -71,12 +71,12 @@ def list_batches(client: genai.Client) -> None:
         print(f"  Created: {getattr(b, 'create_time', 'N/A')}")
 
         # Show source file if available
-        src = getattr(b, 'src', None)
+        src = getattr(b, "src", None)
         if src:
             print(f"  Source: {src}")
 
         # Show destination if available
-        dest = getattr(b, 'dest', None)
+        dest = getattr(b, "dest", None)
         if dest:
             print(f"  Destination: {dest}")
 
@@ -128,10 +128,7 @@ def cancel_all_batches(client: genai.Client) -> None:
 
     # Filter to only pending/running
     active_states = ["JOB_STATE_PENDING", "JOB_STATE_RUNNING"]
-    active_batches = [
-        b for b in batches
-        if str(getattr(b, 'state', '')).split('.')[-1] in active_states
-    ]
+    active_batches = [b for b in batches if str(getattr(b, "state", "")).split(".")[-1] in active_states]
 
     if not active_batches:
         print("No active batch jobs to cancel.")

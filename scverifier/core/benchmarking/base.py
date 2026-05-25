@@ -5,7 +5,7 @@ and evaluation metrics for assessing verification performance.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any
 from enum import Enum
 
 from sklearn.metrics import (
@@ -20,6 +20,7 @@ import numpy as np
 
 class VerificationMethod(Enum):
     """Methods for verifying claims."""
+
     AGENT = "agent"
     AGENTLESS = "agentless"
     AGENT_WITH_SEARCH = "agent_with_search"
@@ -38,6 +39,7 @@ class BenchmarkItem:
         result: Actual verification result (populated after verification)
         metadata: Additional dataset-specific metadata
     """
+
     claim_id: str
     claim: str
     expected_result: str  # SUPPORTS, REFUTES, or INSUFFICIENT_EVIDENCE
@@ -46,9 +48,9 @@ class BenchmarkItem:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __repr__(self):
-        return (f"BenchmarkItem(id={self.claim_id}, "
-                f"expected={self.expected_result}, "
-                f"claim='{self.claim[:50]}...')")
+        return (
+            f"BenchmarkItem(id={self.claim_id}, " f"expected={self.expected_result}, " f"claim='{self.claim[:50]}...')"
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -130,6 +132,7 @@ class EvaluationMetrics:
         label_distribution_expected: Distribution of expected labels
         label_distribution_predicted: Distribution of predicted labels
     """
+
     accuracy: float
     macro_f1: float
     micro_f1: float
@@ -183,15 +186,15 @@ class EvaluationMetrics:
         lines.append("  " + "-" * 55)
         for cls, metrics in sorted(self.per_class_metrics.items()):
             lines.append(
-                f"  {cls:<25} {metrics['precision']:>10.4f} "
-                f"{metrics['recall']:>10.4f} {metrics['f1']:>10.4f}"
+                f"  {cls:<25} {metrics['precision']:>10.4f} " f"{metrics['recall']:>10.4f} {metrics['f1']:>10.4f}"
             )
 
         # Label distribution
         lines.append("\nLABEL DISTRIBUTION")
         lines.append("-" * 40)
-        all_labels = sorted(set(self.label_distribution_expected.keys()) |
-                          set(self.label_distribution_predicted.keys()))
+        all_labels = sorted(
+            set(self.label_distribution_expected.keys()) | set(self.label_distribution_predicted.keys())
+        )
         lines.append(f"  {'Label':<25} {'Expected':>12} {'Predicted':>12}")
         lines.append("  " + "-" * 49)
         for label in all_labels:
@@ -235,10 +238,7 @@ class BenchmarkEvaluator:
     STANDARD_LABELS = ["SUPPORTS", "REFUTES", "INSUFFICIENT_EVIDENCE"]
 
     @staticmethod
-    def compute_metrics(
-        items: List[BenchmarkItem],
-        labels: Optional[List[str]] = None
-    ) -> EvaluationMetrics:
+    def compute_metrics(items: List[BenchmarkItem], labels: Optional[List[str]] = None) -> EvaluationMetrics:
         """Compute evaluation metrics from benchmark items with results.
 
         Args:
@@ -259,16 +259,15 @@ class BenchmarkEvaluator:
 
         # Extract expected and predicted labels
         y_true = [item.expected_result for item in evaluated_items]
-        y_pred = [item.result.verdict if hasattr(item.result, 'verdict')
-                  else str(item.result) for item in evaluated_items]
+        y_pred = [
+            item.result.verdict if hasattr(item.result, "verdict") else str(item.result) for item in evaluated_items
+        ]
 
         return BenchmarkEvaluator.compute_from_predictions(y_true, y_pred, labels)
 
     @staticmethod
     def compute_from_predictions(
-        y_true: List[str],
-        y_pred: List[str],
-        labels: Optional[List[str]] = None
+        y_true: List[str], y_pred: List[str], labels: Optional[List[str]] = None
     ) -> EvaluationMetrics:
         """Compute metrics directly from prediction lists using sklearn.
 
@@ -293,9 +292,7 @@ class BenchmarkEvaluator:
         total = len(y_true)
 
         # Compute precision, recall, F1 per class
-        precision, recall, f1, support = precision_recall_fscore_support(
-            y_true, y_pred, labels=labels, zero_division=0
-        )
+        precision, recall, f1, support = precision_recall_fscore_support(y_true, y_pred, labels=labels, zero_division=0)
 
         # Build per-class metrics dict
         per_class_metrics = {}
@@ -308,8 +305,8 @@ class BenchmarkEvaluator:
             }
 
         # Compute macro and micro F1
-        macro_f1 = float(f1_score(y_true, y_pred, labels=labels, average='macro', zero_division=0))
-        micro_f1 = float(f1_score(y_true, y_pred, labels=labels, average='micro', zero_division=0))
+        macro_f1 = float(f1_score(y_true, y_pred, labels=labels, average="macro", zero_division=0))
+        micro_f1 = float(f1_score(y_true, y_pred, labels=labels, average="micro", zero_division=0))
 
         # Compute confusion matrix
         cm = confusion_matrix(y_true, y_pred, labels=labels)
@@ -336,11 +333,7 @@ class BenchmarkEvaluator:
         )
 
     @staticmethod
-    def get_classification_report(
-        y_true: List[str],
-        y_pred: List[str],
-        labels: Optional[List[str]] = None
-    ) -> str:
+    def get_classification_report(y_true: List[str], y_pred: List[str], labels: Optional[List[str]] = None) -> str:
         """Get sklearn's formatted classification report.
 
         Convenience method for quick text-based report.

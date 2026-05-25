@@ -225,7 +225,9 @@ def main():
         else:
             # Search for papers and verify
             # Note: The extraction evaluation is already configured via pipeline.extractor.skip_evaluation
-            result = pipeline.verify_claim_with_search(args.claim, max_papers=args.max_papers, quality_claims=quality_claims)
+            result = pipeline.verify_claim_with_search(
+                args.claim, max_papers=args.max_papers, quality_claims=quality_claims
+            )
 
         # Print results
         print_results(result, kb)

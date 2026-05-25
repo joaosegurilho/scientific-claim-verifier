@@ -30,18 +30,14 @@ def create_test_scifact_claim():
     test_claim = {
         "id": 999,
         "claim": "Regular physical exercise reduces blood pressure in adults.",
-        "evidence": {
-            "123": [
-                {"label": "SUPPORT", "sentences": [0, 1, 2]}
-            ]
-        },
-        "cited_doc_ids": [123]
+        "evidence": {"123": [{"label": "SUPPORT", "sentences": [0, 1, 2]}]},
+        "cited_doc_ids": [123],
     }
 
     # Create temporary file
-    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False)
+    temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False)
     json.dump(test_claim, temp_file)
-    temp_file.write('\n')
+    temp_file.write("\n")
     temp_file.flush()
     temp_file.close()
 
@@ -54,11 +50,11 @@ def test_benchmark_system(use_search=False):
     Args:
         use_search: Whether to use online paper search (False = use existing KB only)
     """
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("BENCHMARK SYSTEM TEST")
-    print("="*70)
+    print("=" * 70)
     print(f"Test mode: {'With online search' if use_search else 'Knowledge base only'}")
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")
 
     # Create test directories
     test_dir = Path("tests/test_benchmark_output")
@@ -82,10 +78,7 @@ def test_benchmark_system(use_search=False):
     try:
         # Load benchmark
         print("Loading SciFact benchmark...")
-        benchmark = SciFact(
-            claims_file=claims_file,
-            verification_method=VerificationMethod.AGENTLESS
-        )
+        benchmark = SciFact(claims_file=claims_file, verification_method=VerificationMethod.AGENTLESS)
         benchmark.load(max_items=1)
         print(f"Loaded {len(benchmark.items)} item(s)\n")
 
@@ -112,13 +105,13 @@ def test_benchmark_system(use_search=False):
         # Process the single test claim
         item = benchmark.items[0]
 
-        print("="*70)
+        print("=" * 70)
         print(f"Processing claim: {item.claim_id}")
-        print("="*70)
+        print("=" * 70)
         print(f"Claim: {item.claim}")
         print(f"Expected result: {item.expected_result}")
         print(f"Verification method: {item.verification_method.value}")
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
         # Run verification
         print("Running verification...\n")
@@ -130,9 +123,9 @@ def test_benchmark_system(use_search=False):
 
             item.result = result
 
-            print("\n" + "="*70)
+            print("\n" + "=" * 70)
             print("VERIFICATION COMPLETE")
-            print("="*70)
+            print("=" * 70)
             print(f"Verdict: {result.verdict}")
             print(f"Confidence: {result.confidence}/10")
             print(f"Expected: {item.expected_result}")
@@ -147,9 +140,9 @@ def test_benchmark_system(use_search=False):
             item.result = None
 
         # Save logs
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("SAVING RESULTS")
-        print("="*70)
+        print("=" * 70)
 
         log_file = logs_dir / f"{item.claim_id}.log"
         with open(log_file, "w", encoding="utf-8") as f:
@@ -185,8 +178,10 @@ def test_benchmark_system(use_search=False):
         print("\nSaving knowledge base to default location...")
         kb.save()
         stats = kb.get_statistics()
-        print(f"Knowledge base saved: {stats['papers']} papers, "
-              f"{stats['chunks']} chunks, {stats['propositions_total']} propositions")
+        print(
+            f"Knowledge base saved: {stats['papers']} papers, "
+            f"{stats['chunks']} chunks, {stats['propositions_total']} propositions"
+        )
 
         # Save summary
         summary = {
@@ -210,9 +205,9 @@ def test_benchmark_system(use_search=False):
         print(f"Summary saved to: {summary_file}")
 
         # Print final summary
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("TEST SUMMARY")
-        print("="*70)
+        print("=" * 70)
         if item.result:
             print(f"Expected: {item.expected_result}")
             print(f"Predicted: {item.result.verdict}")
@@ -220,7 +215,7 @@ def test_benchmark_system(use_search=False):
             print(f"Confidence: {item.result.confidence}/10")
         else:
             print("Status: ERROR - No result available")
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
         # Cleanup
         Path(claims_file).unlink()
@@ -244,13 +239,9 @@ def test_benchmark_system(use_search=False):
 def main():
     """Main entry point."""
 
-    parser = argparse.ArgumentParser(
-        description="Test the benchmark system with a single claim"
-    )
+    parser = argparse.ArgumentParser(description="Test the benchmark system with a single claim")
     parser.add_argument(
-        "--use-search",
-        action="store_true",
-        help="Use online paper search (otherwise uses existing KB only)"
+        "--use-search", action="store_true", help="Use online paper search (otherwise uses existing KB only)"
     )
 
     args = parser.parse_args()

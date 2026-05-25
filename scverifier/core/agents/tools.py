@@ -56,7 +56,7 @@ def search_similar_propositions(query: str, top_k: int = 20) -> str:
 
     try:
         props = _kb.search_propositions(query, top_k=top_k * 2 if _quality_only else top_k)
-        
+
         # Filter for quality propositions if quality_only is set
         if _quality_only:
             props = [p for p in props if p.is_high_quality()][:top_k]
@@ -166,7 +166,7 @@ def search_propositions_in_paper(query: str, paper_id: str, top_k: int = 10) -> 
 
     try:
         props = _kb.search_propositions_by_paper(query, paper_id)
-        
+
         # Filter for quality propositions if quality_only is set
         if _quality_only:
             props = [p for p in props if p.is_high_quality()]
@@ -191,6 +191,7 @@ def search_propositions_in_paper(query: str, paper_id: str, top_k: int = 10) -> 
         return result
     except Exception as e:
         return f"Error searching propositions in paper: {str(e)}"
+
 
 @tool
 def find_similar_papers(paper_id: str, top_k: int = 5) -> str:
@@ -380,7 +381,7 @@ def search_online_papers(query: str, max_papers: int = 10) -> str:
 
     Use this when the knowledge base doesn't have sufficient information
     about the claim. This searches PubMed, Semantic Scholar, and CORE.
-    
+
     Papers are automatically extracted and added to the knowledge base,
     so you can then search their propositions using other tools.
 
@@ -395,12 +396,14 @@ def search_online_papers(query: str, max_papers: int = 10) -> str:
     """
     if _lit_search is None:
         return "Error: Literature search not initialized"
-    
+
     if _kb is None:
         return "Error: Knowledge base not initialized"
 
     try:
-        print(f"\n[SEARCH ONLINE] Starting online search for: {query[:80]}{'...' if len(query) > 80 else ''}", flush=True)
+        print(
+            f"\n[SEARCH ONLINE] Starting online search for: {query[:80]}{'...' if len(query) > 80 else ''}", flush=True
+        )
         print(f"[SEARCH ONLINE] Max papers: {max_papers}", flush=True)
 
         # Generate search queries
@@ -411,7 +414,7 @@ def search_online_papers(query: str, max_papers: int = 10) -> str:
         papers = _lit_search.search_papers(query, search_queries=search_queries, max_papers=max_papers, verbose=False)
 
         if not papers:
-            print(f"[SEARCH ONLINE] No papers found\n", flush=True)
+            print("[SEARCH ONLINE] No papers found\n", flush=True)
             return f"No papers found online for query: '{query}'"
 
         print(f"[SEARCH ONLINE] Found {len(papers)} papers to process", flush=True)
@@ -449,11 +452,11 @@ def search_online_papers(query: str, max_papers: int = 10) -> str:
             result += f"\n   Year: {paper.year or 'Unknown'}\n"
             result += f"   Citations: {paper.citations or 0}\n"
 
-            print(f"  Extracting propositions from abstract...", flush=True)
+            print("  Extracting propositions from abstract...", flush=True)
             # Extract propositions (from abstract only for online papers)
             extractor.extract_from_paper(paper, show_steps=False, use_full_text=False)
 
-            print(f"  Scoring paper credibility...", flush=True)
+            print("  Scoring paper credibility...", flush=True)
             # Score paper credibility
             scorer.score_paper(paper)
 
@@ -466,7 +469,10 @@ def search_online_papers(query: str, max_papers: int = 10) -> str:
             quality_props = len(paper.get_quality_propositions())
             total_props = len(paper.propositions)
 
-            print(f"  Status: Saved ({quality_props} quality / {total_props} total props, credibility: {paper.credibility.rating:.1f}/5 - {paper.credibility.study_type if paper.credibility else 'N/A'})", flush=True)
+            print(
+                f"  Status: Saved ({quality_props} quality / {total_props} total props, credibility: {paper.credibility.rating:.1f}/5 - {paper.credibility.study_type if paper.credibility else 'N/A'})",
+                flush=True,
+            )
 
             result += f"   Status: Extracted and saved ({quality_props} quality / {total_props} total propositions)\n"
 
@@ -475,10 +481,14 @@ def search_online_papers(query: str, max_papers: int = 10) -> str:
 
             result += "\n"
 
-        print(f"\n[SEARCH ONLINE] Complete: {processed_count} new papers processed, {skipped_count} skipped\n", flush=True)
+        print(
+            f"\n[SEARCH ONLINE] Complete: {processed_count} new papers processed, {skipped_count} skipped\n", flush=True
+        )
 
         result += f"\nSummary: Processed {processed_count} new papers, skipped {skipped_count} already in KB.\n"
-        result += f"You can now search propositions from these papers using search_similar_propositions or other KB tools."
+        result += (
+            "You can now search propositions from these papers using search_similar_propositions or other KB tools."
+        )
 
         return result
     except Exception as e:

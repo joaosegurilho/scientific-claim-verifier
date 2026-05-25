@@ -47,8 +47,7 @@ class HealthVer(Benchmark):
             from datasets import load_dataset
         except ImportError:
             raise ImportError(
-                "The 'datasets' library is required to load HealthVer. "
-                "Install it with: pip install datasets"
+                "The 'datasets' library is required to load HealthVer. " "Install it with: pip install datasets"
             )
 
         # Load the dataset
@@ -57,9 +56,7 @@ class HealthVer(Benchmark):
         # Get the specified split
         if split not in dataset:
             available_splits = list(dataset.keys())
-            raise ValueError(
-                f"Split '{split}' not found. Available splits: {available_splits}"
-            )
+            raise ValueError(f"Split '{split}' not found. Available splits: {available_splits}")
 
         data_split = dataset[split]
 
@@ -91,7 +88,7 @@ class HealthVer(Benchmark):
                     "evidence": example.get("evidence", ""),
                     "label_original": label,
                     "split": split,
-                }
+                },
             )
             self.items.append(item)
 

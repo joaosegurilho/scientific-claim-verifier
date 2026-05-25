@@ -15,7 +15,9 @@ class PropositionEvaluator:
         Config.setup_environment()
 
         # Initialize LLM
-        self.llm = ChatGoogleGenerativeAI(model=Config.LLM_MODEL, temperature=Config.LLM_TEMPERATURE, timeout=Config.LLM_TIMEOUT)
+        self.llm = ChatGoogleGenerativeAI(
+            model=Config.LLM_MODEL, temperature=Config.LLM_TEMPERATURE, timeout=Config.LLM_TIMEOUT
+        )
         self.structured_llm = self.llm.with_structured_output(GradePropositions)
 
         # Set up prompt

@@ -45,7 +45,7 @@ class SemanticScholarAPI(API):
         except Exception as e:
             print(f"[Semantic Scholar] Request failed: {str(e)}")
             return []
-        
+
         papers = []
 
         for item in data.get("data", []):
@@ -75,5 +75,5 @@ class SemanticScholarAPI(API):
             print(f"[Semantic Scholar] No results found for query: {query}")
         else:
             print(f"[Semantic Scholar] Found {len(papers)} results for query: {query}")
-        
+
         return papers

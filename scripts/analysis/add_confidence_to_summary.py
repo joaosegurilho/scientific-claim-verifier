@@ -8,7 +8,6 @@ and adds them to the results in summary.json.
 import json
 import sys
 from pathlib import Path
-from typing import Dict, Any
 
 
 def add_confidence_to_summary(benchmark_dir: Path) -> bool:
@@ -32,14 +31,14 @@ def add_confidence_to_summary(benchmark_dir: Path) -> bool:
         return False
 
     # Load summary
-    with open(summary_path, 'r', encoding='utf-8') as f:
+    with open(summary_path, "r", encoding="utf-8") as f:
         summary = json.load(f)
 
     # Build a map of claim_id -> log data
     log_data = {}
     for log_file in logs_dir.glob("*.json"):
         try:
-            with open(log_file, 'r', encoding='utf-8') as f:
+            with open(log_file, "r", encoding="utf-8") as f:
                 log = json.load(f)
                 claim_id = log.get("claim_id")
                 if claim_id and "result" in log and log["result"]:
@@ -51,7 +50,7 @@ def add_confidence_to_summary(benchmark_dir: Path) -> bool:
             continue
 
     if not log_data:
-        print(f"No confidence data found in logs")
+        print("No confidence data found in logs")
         return False
 
     # Update summary results with confidence scores
@@ -63,7 +62,7 @@ def add_confidence_to_summary(benchmark_dir: Path) -> bool:
             updated_count += 1
 
     # Save updated summary
-    with open(summary_path, 'w', encoding='utf-8') as f:
+    with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)
 
     print(f"Updated {updated_count} results with confidence scores in {summary_path}")

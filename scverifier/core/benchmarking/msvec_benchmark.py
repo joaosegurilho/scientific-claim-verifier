@@ -33,9 +33,7 @@ class MSVEC(Benchmark):
     """
 
     def __init__(
-        self,
-        data_dir: Optional[str] = None,
-        verification_method: VerificationMethod = VerificationMethod.AGENTLESS
+        self, data_dir: Optional[str] = None, verification_method: VerificationMethod = VerificationMethod.AGENTLESS
     ):
         """Initialize MSVEC benchmark.
 
@@ -98,8 +96,7 @@ class MSVEC(Benchmark):
                     self._load_json(file_path, max_items)
             else:
                 raise FileNotFoundError(
-                    f"No claims file found in {self.data_dir}. "
-                    f"Expected claims.jsonl, claims.json, or claims.csv"
+                    f"No claims file found in {self.data_dir}. " f"Expected claims.jsonl, claims.json, or claims.csv"
                 )
 
         return self.items
@@ -172,12 +169,7 @@ class MSVEC(Benchmark):
             BenchmarkItem or None if claim cannot be parsed
         """
         # Extract claim text (try different field names)
-        claim_text = (
-            data.get("claim") or
-            data.get("claim_text") or
-            data.get("text") or
-            data.get("sentence")
-        )
+        claim_text = data.get("claim") or data.get("claim_text") or data.get("text") or data.get("sentence")
 
         if not claim_text:
             return None

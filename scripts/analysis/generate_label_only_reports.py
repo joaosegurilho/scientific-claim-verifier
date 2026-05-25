@@ -20,6 +20,7 @@ from dataclasses import dataclass
 @dataclass
 class LabelOnlyMetrics:
     """Metrics for SciFact label-only evaluation."""
+
     # Per-class metrics
     supports_precision: float
     supports_recall: float
@@ -27,13 +28,13 @@ class LabelOnlyMetrics:
     refutes_precision: float
     refutes_recall: float
     refutes_f1: float
-    
+
     # Aggregate metrics
     micro_precision: float
     micro_recall: float
     micro_f1: float
     macro_f1: float
-    
+
     # Counts
     supports_tp: int
     supports_fp: int
@@ -41,7 +42,7 @@ class LabelOnlyMetrics:
     refutes_tp: int
     refutes_fp: int
     refutes_fn: int
-    
+
     def print_report(self, title: str) -> str:
         """Generate a formatted report string."""
         lines = [
@@ -76,25 +77,25 @@ class LabelOnlyMetrics:
 
 def load_summary(summary_path: Path) -> Dict[str, Any]:
     """Load a summary.json file."""
-    with open(summary_path, 'r', encoding='utf-8') as f:
+    with open(summary_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def compute_scifact_label_only_metrics(results: List[Dict]) -> Tuple[LabelOnlyMetrics, Dict[str, int]]:
     """Compute SciFact label-only metrics correctly.
-    
+
     SciFact's label-only evaluation:
     - Only SUPPORTS and REFUTES are "evidence" labels
     - INSUFFICIENT_EVIDENCE (NEI/NOINFO) means "no evidence found"
-    
+
     For each evidence class (SUPPORTS, REFUTES):
     - True Positive: Gold = X, Predicted = X
     - False Positive: Gold != X, Predicted = X (includes NEI -> X)
     - False Negative: Gold = X, Predicted != X (includes X -> NEI)
-    
+
     Args:
         results: List of result dictionaries with 'expected' and 'predicted' fields
-        
+
     Returns:
         Tuple of (LabelOnlyMetrics, stats_dict)
     """
@@ -102,28 +103,28 @@ def compute_scifact_label_only_metrics(results: List[Dict]) -> Tuple[LabelOnlyMe
     tp = {"SUPPORTS": 0, "REFUTES": 0}
     fp = {"SUPPORTS": 0, "REFUTES": 0}
     fn = {"SUPPORTS": 0, "REFUTES": 0}
-    
+
     # Statistics
     total_claims = len(results)
     error_count = 0
     nei_gold_count = 0
     nei_pred_count = 0
-    
+
     for r in results:
         expected = r.get("expected")
         predicted = r.get("predicted")
-        
+
         # Skip ERROR predictions entirely
         if predicted == "ERROR":
             error_count += 1
             continue
-        
+
         # Track NEI statistics
         if expected == "INSUFFICIENT_EVIDENCE":
             nei_gold_count += 1
         if predicted == "INSUFFICIENT_EVIDENCE":
             nei_pred_count += 1
-        
+
         # Compute TP, FP, FN for each evidence class
         for label in ["SUPPORTS", "REFUTES"]:
             if expected == label and predicted == label:
@@ -140,34 +141,34 @@ def compute_scifact_label_only_metrics(results: List[Dict]) -> Tuple[LabelOnlyMe
                 #                this class -> NEI
                 fn[label] += 1
             # Note: expected != label and predicted != label -> no impact on this class
-    
+
     # Compute per-class metrics
     def safe_div(num, denom):
         return num / denom if denom > 0 else 0.0
-    
+
     def f1_score(precision, recall):
         return 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
-    
+
     supports_precision = safe_div(tp["SUPPORTS"], tp["SUPPORTS"] + fp["SUPPORTS"])
     supports_recall = safe_div(tp["SUPPORTS"], tp["SUPPORTS"] + fn["SUPPORTS"])
     supports_f1 = f1_score(supports_precision, supports_recall)
-    
+
     refutes_precision = safe_div(tp["REFUTES"], tp["REFUTES"] + fp["REFUTES"])
     refutes_recall = safe_div(tp["REFUTES"], tp["REFUTES"] + fn["REFUTES"])
     refutes_f1 = f1_score(refutes_precision, refutes_recall)
-    
+
     # Compute micro-averaged metrics (pooled across classes)
     total_tp = tp["SUPPORTS"] + tp["REFUTES"]
     total_fp = fp["SUPPORTS"] + fp["REFUTES"]
     total_fn = fn["SUPPORTS"] + fn["REFUTES"]
-    
+
     micro_precision = safe_div(total_tp, total_tp + total_fp)
     micro_recall = safe_div(total_tp, total_tp + total_fn)
     micro_f1 = f1_score(micro_precision, micro_recall)
-    
+
     # Compute macro-averaged F1 (simple average of per-class F1)
     macro_f1 = (supports_f1 + refutes_f1) / 2
-    
+
     metrics = LabelOnlyMetrics(
         supports_precision=supports_precision,
         supports_recall=supports_recall,
@@ -186,19 +187,17 @@ def compute_scifact_label_only_metrics(results: List[Dict]) -> Tuple[LabelOnlyMe
         refutes_fp=fp["REFUTES"],
         refutes_fn=fn["REFUTES"],
     )
-    
+
     stats = {
         "total_claims": total_claims,
         "error_count": error_count,
         "nei_gold_count": nei_gold_count,
         "nei_pred_count": nei_pred_count,
         "evaluated_pairs": total_claims - error_count,
-        "evidence_gold_count": (tp["SUPPORTS"] + fn["SUPPORTS"] + 
-                                tp["REFUTES"] + fn["REFUTES"]),
-        "evidence_pred_count": (tp["SUPPORTS"] + fp["SUPPORTS"] + 
-                                tp["REFUTES"] + fp["REFUTES"]),
+        "evidence_gold_count": (tp["SUPPORTS"] + fn["SUPPORTS"] + tp["REFUTES"] + fn["REFUTES"]),
+        "evidence_pred_count": (tp["SUPPORTS"] + fp["SUPPORTS"] + tp["REFUTES"] + fp["REFUTES"]),
     }
-    
+
     return metrics, stats
 
 
@@ -220,7 +219,7 @@ def generate_label_only_report(summary_path: Path) -> bool:
 
         # Compute metrics
         metrics, stats = compute_scifact_label_only_metrics(results)
-        
+
         if stats["evidence_gold_count"] == 0:
             print(f"  No SUPPORTS/REFUTES gold labels found in {summary_path.parent.name}")
             return False
@@ -237,7 +236,7 @@ def generate_label_only_report(summary_path: Path) -> bool:
         )
 
         # Add filtering statistics
-        report += f"\n\nDATASET STATISTICS\n"
+        report += "\n\nDATASET STATISTICS\n"
         report += f"{'-' * 40}\n"
         report += f"  Total claims in benchmark:       {stats['total_claims']}\n"
         report += f"  ERROR predictions (excluded):    {stats['error_count']}\n"
@@ -249,7 +248,7 @@ def generate_label_only_report(summary_path: Path) -> bool:
 
         # Save report
         output_path = summary_path.parent / "label_only_report.txt"
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(report)
 
         print(f"  ✓ Saved label-only report: {output_path.relative_to(summary_path.parent.parent.parent)}")
@@ -261,6 +260,7 @@ def generate_label_only_report(summary_path: Path) -> bool:
     except Exception as e:
         print(f"  ✗ Error processing {summary_path.parent.name}: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

@@ -37,7 +37,7 @@ try:
     logger.info("Initializing Gemini client")
     client = genai.Client(api_key=api_key)
     logger.info("Gemini client initialized successfully")
-except Exception as e:
+except Exception:
     logger.exception("Failed to initialize Gemini client")
     sys.exit(1)
 
@@ -61,7 +61,7 @@ try:
         contents=prompt,
     )
     logger.info("Received response from Gemini API")
-except Exception as e:
+except Exception:
     logger.exception("Gemini API call failed")
     sys.exit(1)
 
@@ -79,7 +79,7 @@ try:
     logger.info("Extracted text from response")
     logger.info("Gemini response text:")
     logger.info(text)
-except Exception as e:
+except Exception:
     logger.exception("Failed to extract text from response")
     sys.exit(1)
 

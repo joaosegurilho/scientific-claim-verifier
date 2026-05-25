@@ -21,7 +21,6 @@ import json
 import sys
 from pathlib import Path
 from collections import defaultdict
-from datetime import datetime
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -48,7 +47,7 @@ def find_latest_results():
 
     # Return first (most recent) file
     latest_file = all_results[0]
-    
+
     # Find corresponding metadata
     # batch_20251211_143022_0_results.jsonl -> batch_20251211_143022_0.json
     stem = latest_file.stem.replace("_results", "")  # batch_20251211_143022_0
@@ -236,7 +235,9 @@ def parse_results(results_file: Path, metadata: dict):
                                                     if not isinstance(propositions_list, list):
                                                         propositions_list = []
                                                 except Exception as e:
-                                                    print(f"JSON NORMALIZED PARSING FAILED for key: {key} with error: {e}")
+                                                    print(
+                                                        f"JSON NORMALIZED PARSING FAILED for key: {key} with error: {e}"
+                                                    )
 
                                             # 4. ast.literal_eval as last resort
                                             if not propositions_list:
@@ -250,7 +251,7 @@ def parse_results(results_file: Path, metadata: dict):
                                             if not propositions_list:
                                                 print(f"PARSING FAILED for key: {key}")
                                                 propositions_list = []
-                                            
+
                                             # Debug output
                                             print(f"\nFull text response:\n{repr(text_response)}")
                                         else:
@@ -335,7 +336,7 @@ def parse_results(results_file: Path, metadata: dict):
 
 def add_to_knowledge_base(kb: KnowledgeBase, papers_dict: dict, chunks_dict: dict, paper_propositions: dict):
     """Add papers with propositions to the main knowledge base.
-    
+
     Includes deduplication check to prevent adding papers already in KB.
     """
     print("\n" + "=" * 80)
@@ -399,7 +400,7 @@ def main():
     parser = argparse.ArgumentParser(description="Process batch extraction results")
     parser.add_argument(
         "--results-file",
-        help="Path to results JSONL file (e.g., data/batch_jobs/results/batch_20251211_143022_0_results.jsonl)"
+        help="Path to results JSONL file (e.g., data/batch_jobs/results/batch_20251211_143022_0_results.jsonl)",
     )
 
     args = parser.parse_args()

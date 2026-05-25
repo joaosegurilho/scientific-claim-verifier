@@ -18,7 +18,12 @@ class SciFact(Benchmark):
     Automatically combines all SciFact claim files (dev, test, train) if no specific file is provided.
     """
 
-    def __init__(self, claims_file: Optional[str] = None, split: Optional[str] = None, verification_method: VerificationMethod = VerificationMethod.AGENTLESS):
+    def __init__(
+        self,
+        claims_file: Optional[str] = None,
+        split: Optional[str] = None,
+        verification_method: VerificationMethod = VerificationMethod.AGENTLESS,
+    ):
         """Initialize SciFact benchmark.
 
         Args:
@@ -33,7 +38,7 @@ class SciFact(Benchmark):
             self.claims_file = Path(claims_file)
         # If split is specified, use the corresponding file
         elif split:
-            if split not in ['train', 'dev', 'test']:
+            if split not in ["train", "dev", "test"]:
                 raise ValueError(f"Invalid split '{split}'. Must be 'train', 'dev', 'test', or None")
             self.claims_file = Path(f"data/scifact_data/claims_{split}.jsonl")
         # Otherwise, combine all files
@@ -46,20 +51,20 @@ class SciFact(Benchmark):
 
     def _combine_all_claims_files(self) -> Path:
         """Combine all SciFact claim files (dev, test, train) into one temporary file.
-        
+
         Returns:
             Path to the temporary combined file
         """
         scifact_dir = Path("data/scifact_data")
         if not scifact_dir.exists():
             raise FileNotFoundError(f"SciFact data directory not found at {scifact_dir}")
-        
+
         claim_files = [
             scifact_dir / "claims_train.jsonl",
             scifact_dir / "claims_dev.jsonl",
             scifact_dir / "claims_test.jsonl",
         ]
-        
+
         # Check which files exist
         existing_files = [f for f in claim_files if f.exists()]
         if not existing_files:
@@ -67,11 +72,11 @@ class SciFact(Benchmark):
                 f"No SciFact claim files found in {scifact_dir}. "
                 f"Expected: claims_train.jsonl, claims_dev.jsonl, claims_test.jsonl"
             )
-        
+
         # Create temporary combined file
-        temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False)
-        
-        print(f"Combining SciFact claim files:")
+        temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False)
+
+        print("Combining SciFact claim files:")
         total_claims = 0
         for claim_file in existing_files:
             count = 0
@@ -81,10 +86,10 @@ class SciFact(Benchmark):
                     count += 1
                     total_claims += 1
             print(f"  - {claim_file.name}: {count} claims")
-        
+
         temp_file.flush()
         temp_file.close()
-        
+
         print(f"Total claims combined: {total_claims}\n")
         self._temp_combined_file = temp_file.name
         return Path(temp_file.name)
@@ -101,7 +106,7 @@ class SciFact(Benchmark):
         # If no specific file provided, combine all files
         if self.claims_file is None:
             self.claims_file = self._combine_all_claims_files()
-        
+
         if not self.claims_file.exists():
             raise FileNotFoundError(f"SciFact claims file not found at {self.claims_file}")
 
@@ -122,13 +127,13 @@ class SciFact(Benchmark):
                     metadata={
                         "evidence": data.get("evidence", {}),
                         "cited_doc_ids": data.get("cited_doc_ids", []),
-                    }
+                    },
                 )
                 all_items.append(item)
 
         # Sort by claim_id (converting to int for proper numeric sorting)
         all_items.sort(key=lambda x: int(x.claim_id))
-        
+
         # Apply max_items limit after sorting
         if max_items:
             self.items = all_items[:max_items]
@@ -175,7 +180,7 @@ class SciFact(Benchmark):
         else:
             # No evidence labels
             return "INSUFFICIENT_EVIDENCE"
-    
+
     def __del__(self):
         """Clean up temporary combined file if it was created."""
         if self._temp_combined_file and Path(self._temp_combined_file).exists():

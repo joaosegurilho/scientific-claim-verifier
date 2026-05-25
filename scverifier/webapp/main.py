@@ -316,7 +316,7 @@ async def get_similar_chunks(chunk_id: str, top_k: int = 5):
     for chunk, score in similar_chunks:
         # Get the source paper for context
         paper = kb.get_paper(chunk.paper_id)
-        
+
         results.append(
             {
                 "id": chunk.chunk_id,
@@ -952,6 +952,7 @@ async def api_paper_detail(paper_id: str):
         "propositions_count": len(paper.propositions),
         "quality_propositions_count": len(paper.get_quality_propositions()),
     }
+
 
 @app.post("/api/papers/{paper_id}/extract-fulltext")
 async def api_extract_fulltext(paper_id: str):

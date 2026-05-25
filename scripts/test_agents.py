@@ -29,10 +29,7 @@ async def test_autonomous_agent():
 
     # Initialize agent
     print("\n Initializing autonomous agent...")
-    agent = AutonomousClaimAgent(
-        kb=kb,
-        allow_online_search=False  # Disable online search for faster testing
-    )
+    agent = AutonomousClaimAgent(kb=kb, allow_online_search=False)  # Disable online search for faster testing
 
     # Test claim
     claim = "Vitamin D prevents COVID-19"

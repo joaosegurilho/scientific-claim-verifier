@@ -66,7 +66,9 @@ def format_time(seconds: float) -> str:
         return f"{hours}h {minutes}m {secs}s"
 
 
-def load_benchmark(benchmark_name: str, test_single_claim: bool = False, offset: int = 0, limit: int = None, scifact_split: str = None):
+def load_benchmark(
+    benchmark_name: str, test_single_claim: bool = False, offset: int = 0, limit: int = None, scifact_split: str = None
+):
     """Load benchmark dataset with optional offset and limit."""
     print(f"\nLoading {benchmark_name.capitalize()} benchmark...")
 
@@ -140,7 +142,7 @@ def search_papers_for_claims(claims: List[tuple], papers_per_claim: int) -> Dict
 
 def score_and_chunk_papers(claim_papers: Dict[str, List[Paper]]) -> tuple:
     """Score papers and chunk them locally.
-    
+
     Returns:
         tuple: (all_papers, all_chunks, chunk_keys_by_paper)
                chunk_keys_by_paper groups chunk_keys by paper_id for splitting
@@ -208,15 +210,17 @@ def score_and_chunk_papers(claim_papers: Dict[str, List[Paper]]) -> tuple:
             # Store chunks and create keys grouped by paper
             if paper.id not in chunk_keys_by_paper:
                 chunk_keys_by_paper[paper.id] = []
-            
+
             for chunk in paper_chunks:
                 all_chunks[chunk.chunk_id] = chunk
-                chunk_keys_by_paper[paper.id].append({
-                    "key": f"{claim_id}|{paper.id}|{chunk.chunk_id}",
-                    "claim_id": claim_id,
-                    "paper_id": paper.id,
-                    "chunk_id": chunk.chunk_id,
-                })
+                chunk_keys_by_paper[paper.id].append(
+                    {
+                        "key": f"{claim_id}|{paper.id}|{chunk.chunk_id}",
+                        "claim_id": claim_id,
+                        "paper_id": paper.id,
+                        "chunk_id": chunk.chunk_id,
+                    }
+                )
 
     print(f"Created {len(all_chunks)} chunks for batch extraction")
     return all_papers, all_chunks, chunk_keys_by_paper
@@ -291,7 +295,7 @@ def calculate_token_cost(prompt: str, chunks: Dict) -> Dict[str, Any]:
     try:
         encoding = tiktoken.get_encoding("cl100k_base")  # GPT-4 encoding
         prompt_tokens = len(encoding.encode(prompt))
-        
+
         # Calculate total tokens
         total_tokens = 0
         for chunk in chunks.values():
@@ -355,16 +359,16 @@ def split_by_papers(
     chunk_keys_by_paper: Dict[str, List[dict]],
     all_papers: Dict[str, Paper],
     all_chunks: Dict,
-    chunk_size: int | None = None
+    chunk_size: int | None = None,
 ) -> List[Dict[str, Any]]:
     """Split data into parts, keeping all chunks from same paper together.
-    
+
     Args:
         chunk_keys_by_paper: paper_id -> list of chunk_keys
         all_papers: paper_id -> Paper object
         all_chunks: chunk_id -> Chunk object
         chunk_size: Maximum number of requests per part (uses Config.BATCH_FILE_SPLIT_LIMIT if None)
-        
+
     Returns:
         List of dicts, each containing:
             - paper_ids: list of paper IDs in this part
@@ -375,7 +379,7 @@ def split_by_papers(
     # Use configured split limit if not specified
     if chunk_size is None:
         chunk_size = Config.BATCH_FILE_SPLIT_LIMIT
-    
+
     parts: List[Dict[str, Any]] = []
     current_part: Dict[str, Any] = {
         "paper_ids": [],
@@ -384,10 +388,10 @@ def split_by_papers(
         "chunks": {},
     }
     current_count = 0
-    
+
     for paper_id, chunk_keys in chunk_keys_by_paper.items():
         paper_chunk_count = len(chunk_keys)
-        
+
         # If adding this paper would exceed limit and we have content, start new part
         if current_count + paper_chunk_count > chunk_size and current_count > 0:
             parts.append(current_part)
@@ -398,22 +402,22 @@ def split_by_papers(
                 "chunks": {},
             }
             current_count = 0
-        
+
         # Add this paper to current part
         current_part["paper_ids"].append(paper_id)
         current_part["chunk_keys"].extend(chunk_keys)
         current_part["papers"][paper_id] = paper_to_dict(all_papers[paper_id])
-        
+
         for ck in chunk_keys:
             chunk_id = ck["chunk_id"]
             current_part["chunks"][chunk_id] = chunk_to_dict(all_chunks[chunk_id])
-        
+
         current_count += paper_chunk_count
-    
+
     # Don't forget the last part
     if current_count > 0:
         parts.append(current_part)
-    
+
     return parts
 
 
@@ -430,47 +434,47 @@ def create_batch_files(
     elapsed_time: float,
 ) -> List[Path]:
     """Create batch input files and their corresponding metadata files.
-    
+
     Always creates files with _0, _1, _2 suffix pattern.
     Each input file has its own complete metadata file.
-    
+
     Returns:
         List of created input file paths
     """
     print("\nPreparing batch files...")
-    
+
     input_dir = Path(__file__).parent.parent.parent / "data" / "batch_jobs" / "input"
     metadata_dir = Path(__file__).parent.parent.parent / "data" / "batch_jobs" / "metadata"
     input_dir.mkdir(parents=True, exist_ok=True)
     metadata_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Split data by papers to keep chunks together
     parts = split_by_papers(chunk_keys_by_paper, all_papers, all_chunks, chunk_size=Config.BATCH_FILE_SPLIT_LIMIT)
-    
+
     print(f"Split into {len(parts)} part(s)")
-    
+
     created_files = []
-    
+
     for part_num, part_data in enumerate(parts):
         # Create input file
         input_file = input_dir / f"batch_{timestamp}_{part_num}.jsonl"
-        
+
         # Write batch requests
         with open(input_file, "w") as f:
             for ck in part_data["chunk_keys"]:
                 key = ck["key"]
                 chunk_id = ck["chunk_id"]
                 chunk_text = part_data["chunks"][chunk_id]["text"]
-                
+
                 request = {
                     "key": key,
                     "request": {"contents": [{"parts": [{"text": f"{proposition_prompt}\n\n{chunk_text}"}]}]},
                 }
                 f.write(json.dumps(request) + "\n")
-        
+
         # Create metadata file
         metadata_file = metadata_dir / f"batch_{timestamp}_{part_num}.json"
-        
+
         metadata = {
             "timestamp": timestamp,
             "part": part_num,
@@ -505,23 +509,26 @@ def create_batch_files(
             "elapsed_time_seconds": elapsed_time,
             "elapsed_time_formatted": format_time(elapsed_time),
         }
-        
+
         with open(metadata_file, "w") as f:
             json.dump(metadata, f, indent=2)
-        
+
         file_size_mb = input_file.stat().st_size / (1024 * 1024)
         print(f"  Created {input_file.name} ({len(part_data['chunk_keys'])} requests, {file_size_mb:.1f} MB)")
         print(f"  Created {metadata_file.name} ({len(part_data['papers'])} papers, {len(part_data['chunks'])} chunks)")
-        
+
         created_files.append(input_file)
-    
+
     return created_files
 
 
 def main():
     parser = argparse.ArgumentParser(description="Create batch extraction input files for proposition extraction")
     parser.add_argument(
-        "--benchmark", required=True, choices=["coverbench", "healthver", "scifact", "msvec"], help="Benchmark dataset to use"
+        "--benchmark",
+        required=True,
+        choices=["coverbench", "healthver", "scifact", "msvec"],
+        help="Benchmark dataset to use",
     )
     parser.add_argument(
         "--papers-per-claim", type=int, default=10, help="Number of papers to search per claim (default: 10)"
@@ -529,7 +536,11 @@ def main():
     parser.add_argument("--test-single-claim", action="store_true", help="Process only the first claim (for testing)")
     parser.add_argument("--offset", type=int, default=0, help="Starting claim index (default: 0)")
     parser.add_argument("--limit", type=int, help="Number of claims to process (default: all remaining)")
-    parser.add_argument("--scifact-split", choices=["train", "dev", "test"], help="SciFact split to use: train, dev, or test (default: all combined)")
+    parser.add_argument(
+        "--scifact-split",
+        choices=["train", "dev", "test"],
+        help="SciFact split to use: train, dev, or test (default: all combined)",
+    )
 
     args = parser.parse_args()
 
@@ -539,7 +550,9 @@ def main():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Step 1: Load claims
-    claims = load_benchmark(args.benchmark, args.test_single_claim, offset=args.offset, limit=args.limit, scifact_split=args.scifact_split)
+    claims = load_benchmark(
+        args.benchmark, args.test_single_claim, offset=args.offset, limit=args.limit, scifact_split=args.scifact_split
+    )
 
     # Step 2: Search papers
     claim_papers = search_papers_for_claims(claims, args.papers_per_claim)
@@ -607,11 +620,11 @@ def main():
     print(f"\nCreated {len(created_files)} batch file(s):")
     for f in created_files:
         print(f"  - {f.name}")
-    
-    print(f"\nNext step: Submit each batch file to Google's Batch API:")
+
+    print("\nNext step: Submit each batch file to Google's Batch API:")
     for f in created_files:
         print(f"  python submit_batch.py --batch-file {f}")
-    
+
     return 0
 
 

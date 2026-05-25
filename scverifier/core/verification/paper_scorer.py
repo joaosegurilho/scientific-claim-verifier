@@ -65,8 +65,7 @@ class PaperScorer:
 
         # Dynamically generate study type list from STUDY_TYPES
         study_types_list = "\n".join(
-            f"- {study_type}: {description}"
-            for study_type, (score, description) in self.STUDY_TYPES.items()
+            f"- {study_type}: {description}" for study_type, (score, description) in self.STUDY_TYPES.items()
         )
 
         system_message = f"""You are a scientific paper metadata extraction system. Your task is to analyze a paper's title and abstract and extract key information about the study design and methodology.
@@ -159,11 +158,13 @@ Extract the metadata:"""
             - recency_penalty
         )
         rating = max(1, min(5, raw_score))  # Clamp between 1 and 5
-        
+
         # Simplified logging: just 2 lines per paper with tab indentation
         if verbose:
             print(f"\t  Study: {study_type} | Citations: {paper.citations or 0}")
-            print(f"\t  Score: {rating}/5 (base: {study_score}, cit: +{citation_bonus}, access: +{open_access_bonus}, full: +{fulltext_content_bonus}, method: +{methodology_bonus}, recency: -{recency_penalty})")
+            print(
+                f"\t  Score: {rating}/5 (base: {study_score}, cit: +{citation_bonus}, access: +{open_access_bonus}, full: +{fulltext_content_bonus}, method: +{methodology_bonus}, recency: -{recency_penalty})"
+            )
 
         # Create CredibilityScores object with all metadata
         scores = CredibilityScores(
@@ -277,11 +278,7 @@ Extract the metadata:"""
         except Exception:
             # Fallback to alternate model
             print(f"         ⚠ Primary model failed, falling back to {Config.LLM_FALLBACK_MODEL}...")
-            self.llm = ChatGoogleGenerativeAI(
-                model=Config.LLM_FALLBACK_MODEL,
-                temperature=0,
-                timeout=self.timeout
-            )
+            self.llm = ChatGoogleGenerativeAI(model=Config.LLM_FALLBACK_MODEL, temperature=0, timeout=self.timeout)
             self.structured_llm = self.llm.with_structured_output(PaperMetadata)
             self.metadata_extractor = self.prompt | self.structured_llm
             # Retry with fallback model

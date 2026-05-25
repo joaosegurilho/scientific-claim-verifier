@@ -19,7 +19,9 @@ class PropositionGenerator:
         Config.setup_environment()
 
         # Initialize LLM
-        self.llm = ChatGoogleGenerativeAI(model=Config.LLM_MODEL, temperature=Config.LLM_TEMPERATURE, timeout=Config.LLM_TIMEOUT)
+        self.llm = ChatGoogleGenerativeAI(
+            model=Config.LLM_MODEL, temperature=Config.LLM_TEMPERATURE, timeout=Config.LLM_TIMEOUT
+        )
         self.structured_llm = self.llm.with_structured_output(GeneratePropositions)
 
         # Set up prompt
@@ -51,7 +53,7 @@ class PropositionGenerator:
                     "Queen Elara forged the Obsidian Pact with dragon Valthorax in 1247 of the Third Age.",
                     "The Obsidian Pact was signed during the Night of Whispers.",
                     "The Obsidian Pact bound the kingdom of Eldermere to a 300-year alliance.",
-                    "The Obsidian Pact required Eldermere to supply 500 barrels of enchanted starmetal annually to Valthorax."
+                    "The Obsidian Pact required Eldermere to supply 500 barrels of enchanted starmetal annually to Valthorax.",
                 ],
             },
             {

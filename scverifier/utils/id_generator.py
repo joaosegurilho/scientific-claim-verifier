@@ -39,6 +39,7 @@ class IDGenerator:
 # Global singleton instance
 _id_generator = IDGenerator()
 
+
 def set_counters(chunk: int = 0, prop: int = 0):
     """Set the chunk and proposition counters to specific values."""
     _id_generator.set_counters(chunk=chunk, prop=prop)

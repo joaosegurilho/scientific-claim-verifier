@@ -71,11 +71,11 @@ class CoreAPI(API):
 
         try:
             data = self._make_request("search/works", json_data=json_data)
-            
+
             if not data or not data.get("results"):
                 print(f"[CORE] No results found for query: {query}")
                 return []
-            
+
             papers = []
 
             for item in data.get("results", []):
@@ -107,7 +107,7 @@ class CoreAPI(API):
 
             if papers:
                 print(f"[CORE] Found {len(papers)} results for query: {query}")
-            
+
             return papers
 
         except Exception as e:

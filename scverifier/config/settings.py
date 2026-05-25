@@ -19,9 +19,11 @@ class Config:
     OPENALEX_MAILTO = os.getenv("OPENALEX_MAILTO")  # Required for polite pool
 
     # Model Settings
-    LLM_MODEL = "gemini-2.5-flash" #"gemini-2.5-flash-lite"  # "gemini-2.0-flash-lite" # 2.0 flash lite is older but slightly cheaper
+    LLM_MODEL = "gemini-2.5-flash"  # "gemini-2.5-flash-lite"  # "gemini-2.0-flash-lite" # 2.0 flash lite is older but slightly cheaper
     EMBEDDING_MODEL = "nomic-embed-text:v1.5"
-    BATCH_LLM_MODEL = "gemini-2.0-flash-lite" #"models/gemini-2.5-flash-lite-preview-09-2025" #"models/gemini-2.0-flash-lite"
+    BATCH_LLM_MODEL = (
+        "gemini-2.0-flash-lite"  # "models/gemini-2.5-flash-lite-preview-09-2025" #"models/gemini-2.0-flash-lite"
+    )
     LLM_FALLBACK_MODEL = "gemini-2.0-flash-lite"  # Fallback model when primary hits rate limits
     LLM_TEMPERATURE = 0
     LLM_TIMEOUT = 120  # Timeout for LLM calls in seconds
@@ -40,18 +42,18 @@ class Config:
     MAX_PROPS_PER_PAPER = 5  # Maximum propositions from each paper used in verification (ensures source diversity)
 
     # Knowledge base storage path
-    DB_NAME = "data/kb_all" #"data/kb_benchmarking_scifact_dev" # "data/kb_benchmarking_msvec" # #"data/kb_benchmarking_scifact"
+    DB_NAME = "data/kb_all"  # "data/kb_benchmarking_scifact_dev" # "data/kb_benchmarking_msvec" # #"data/kb_benchmarking_scifact"
 
     # Google gRPC logging for ALTS (Application Layer Transport Security) credential
     os.environ["GRPC_VERBOSITY"] = "NONE"
     os.environ["GRPC_CPP_PLUGIN_LOGGER_LEVEL"] = "ERROR"
 
     # Agent settings
-    AGENT_MODEL = "gemini-2.5-flash" #"gemini-flash-latest"
+    AGENT_MODEL = "gemini-2.5-flash"  # "gemini-flash-latest"
     RECURSION_LIMIT = 75  # Maximum reasoning steps for autonomous agents
     AGENT_TEMPERATURE = 0  # Temperature setting for agent LLMs
     AGENT_MAX_OUTPUT_TOKENS = 65536  # Maximum output tokens for agent responses
-    
+
     # Batch processing settings
     BATCH_FILE_SPLIT_LIMIT = 2000  # Maximum number of requests per batch file (split if exceeded)
 

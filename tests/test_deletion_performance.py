@@ -6,9 +6,10 @@ import time
 import os
 
 # Add the package to path
-sys.path.insert(0, '/home/pc-hp-dev/Desktop/Masters_Thesis/scientific-claim-verifier')
+sys.path.insert(0, "/home/pc-hp-dev/Desktop/Masters_Thesis/scientific-claim-verifier")
 
 from scverifier.core.knowledge.knowledge_base import KnowledgeBase
+
 
 def test_deletion_performance():
     """Test the deletion performance of the knowledge base."""
@@ -20,7 +21,7 @@ def test_deletion_performance():
     # Load existing knowledge base
     kb = KnowledgeBase()
 
-    db_path = '/home/pc-hp-dev/Desktop/Masters_Thesis/scientific-claim-verifier/data/output'
+    db_path = "/home/pc-hp-dev/Desktop/Masters_Thesis/scientific-claim-verifier/data/output"
 
     if not os.path.exists(db_path):
         print(f"Error: Knowledge base not found at {db_path}")
@@ -47,14 +48,14 @@ def test_deletion_performance():
     paper_id = paper_to_delete.id
     paper_title = paper_to_delete.title[:50]
 
-    print(f"\nTesting deletion of paper:")
+    print("\nTesting deletion of paper:")
     print(f"  ID: {paper_id}")
     print(f"  Title: {paper_title}...")
     print(f"  Chunks: {len(paper_to_delete.chunks)}")
     print(f"  Propositions: {len(paper_to_delete.propositions)}")
 
     # Time the deletion
-    print(f"\nDeleting paper (using efficient FAISS delete)...")
+    print("\nDeleting paper (using efficient FAISS delete)...")
     t_delete_start = time.time()
     success = kb.delete_paper(paper_id, verbose=True)
     t_delete_end = time.time()
@@ -73,6 +74,7 @@ def test_deletion_performance():
 
     # Don't save - this is just a test
     print("\n(Not saving changes - this was just a performance test)")
+
 
 if __name__ == "__main__":
     test_deletion_performance()

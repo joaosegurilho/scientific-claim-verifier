@@ -30,10 +30,7 @@ def extract_with_pymupdf(pdf_path: str) -> Tuple[List[Dict], dict]:
         text = page.get_text()  # Extract text from this page
 
         if text.strip():  # Only include pages with content
-            pages_data.append({
-                "text": text.strip(),
-                "page": page_num + 1  # 1-indexed for users
-            })
+            pages_data.append({"text": text.strip(), "page": page_num + 1})  # 1-indexed for users
 
     metadata = {
         "title": doc.metadata.get("title", ""),
@@ -71,10 +68,7 @@ def extract_with_pdfplumber(pdf_path: str) -> Tuple[List[Dict], dict]:
         for page_num, page in enumerate(pdf.pages):
             text = page.extract_text()
             if text and text.strip():  # Only include pages with content
-                pages_data.append({
-                    "text": text.strip(),
-                    "page": page_num + 1  # 1-indexed for users
-                })
+                pages_data.append({"text": text.strip(), "page": page_num + 1})  # 1-indexed for users
 
     return pages_data, metadata
 
@@ -96,7 +90,7 @@ def extract_with_pypdf(pdf_path: str) -> Tuple[List[Dict], dict]:
 
     pages_data = []
 
-    with open(pdf_path, 'rb') as f:
+    with open(pdf_path, "rb") as f:
         reader = pypdf.PdfReader(f)
 
         metadata = {
@@ -106,10 +100,7 @@ def extract_with_pypdf(pdf_path: str) -> Tuple[List[Dict], dict]:
         for page_num, page in enumerate(reader.pages):
             text = page.extract_text()
             if text and text.strip():  # Only include pages with content
-                pages_data.append({
-                    "text": text.strip(),
-                    "page": page_num + 1  # 1-indexed for users
-                })
+                pages_data.append({"text": text.strip(), "page": page_num + 1})  # 1-indexed for users
 
     return pages_data, metadata
 
@@ -139,9 +130,6 @@ def extract_with_marker(pdf_path: str) -> Tuple[List[Dict], dict]:
     metadata = getattr(rendered, "metadata", {}) or {}
 
     # Return as a single "page" since marker doesn't provide page splits
-    pages_data = [{
-        "text": markdown,
-        "page": 1
-    }]
+    pages_data = [{"text": markdown, "page": 1}]
 
     return pages_data, metadata

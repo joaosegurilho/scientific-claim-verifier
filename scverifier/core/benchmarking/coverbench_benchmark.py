@@ -42,12 +42,11 @@ class CoverBench(Benchmark):
             from datasets import load_dataset
         except ImportError:
             raise ImportError(
-                "The 'datasets' library is required to load CoverBench. "
-                "Install it with: pip install datasets"
+                "The 'datasets' library is required to load CoverBench. " "Install it with: pip install datasets"
             )
 
         # Load the dataset
-        dataset = load_dataset("google/coverbench")['eval']
+        dataset = load_dataset("google/coverbench")["eval"]
 
         self.items = []
         for idx, example in enumerate(dataset):
@@ -69,7 +68,7 @@ class CoverBench(Benchmark):
                     "domain": example.get("domain", ""),
                     "complexity_sources": example.get("complexity_sources", []),
                     "dataset_source": example.get("dataset_source", ""),
-                }
+                },
             )
             self.items.append(item)
 

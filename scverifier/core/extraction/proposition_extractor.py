@@ -172,21 +172,27 @@ class PropositionExtractor:
 
                 # Generate propositions from these chunks
                 raw_propositions = self.proposition_generator.generate_propositions_from_chunks(section_chunks)
-                
+
                 # Evaluate propositions (or skip if disabled) - consistent with abstract extraction
                 if self.skip_evaluation:
                     section_propositions = raw_propositions
                 else:
-                    section_propositions = self.proposition_evaluator.evaluate_propositions(raw_propositions, section_chunks)
-                
+                    section_propositions = self.proposition_evaluator.evaluate_propositions(
+                        raw_propositions, section_chunks
+                    )
+
                 all_propositions.extend(section_propositions)
 
                 if show_steps:
                     if self.skip_evaluation:
-                        print(f"      Generated {len(section_propositions)} propositions from {len(section_chunks)} chunks (evaluation skipped)")
+                        print(
+                            f"      Generated {len(section_propositions)} propositions from {len(section_chunks)} chunks (evaluation skipped)"
+                        )
                     else:
                         passed = sum(1 for p in section_propositions if p.is_high_quality())
-                        print(f"      Generated {len(section_propositions)} propositions from {len(section_chunks)} chunks ({passed} passed quality checks)")
+                        print(
+                            f"      Generated {len(section_propositions)} propositions from {len(section_chunks)} chunks ({passed} passed quality checks)"
+                        )
 
         else:
             # Fallback to abstract if no full text available
@@ -210,7 +216,7 @@ class PropositionExtractor:
                 # No abstract available - skip extraction
                 if show_steps:
                     print(f"  Warning: Paper '{paper.id}' has no abstract - skipping proposition extraction")
-                    print(f"    (Use use_full_text=True to extract from full text instead)")
+                    print("    (Use use_full_text=True to extract from full text instead)")
                 all_chunks = []
                 all_propositions = []
             else:

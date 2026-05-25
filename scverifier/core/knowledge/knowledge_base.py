@@ -132,7 +132,7 @@ class KnowledgeBase:
             if verbose:
                 print(f"  [2/3] Added {len(paper.chunks)} chunks to vectorstore ({time.time() - t1:.3f}s)")
         elif verbose:
-            print(f"  [2/3] No chunks to add (0.000s)")
+            print("  [2/3] No chunks to add (0.000s)")
 
         if paper.propositions:
             t2 = time.time()
@@ -140,7 +140,7 @@ class KnowledgeBase:
             if verbose:
                 print(f"  [3/3] Added {len(paper.propositions)} propositions to vectorstore ({time.time() - t2:.3f}s)")
         elif verbose:
-            print(f"  [3/3] No propositions to add (0.000s)")
+            print("  [3/3] No propositions to add (0.000s)")
 
         if verbose:
             total_time = time.time() - start_time
@@ -172,7 +172,7 @@ class KnowledgeBase:
             avg_time_per_paper = total_time / len(papers) if papers else 0
 
             print(f"\n{'='*80}")
-            print(f"BATCH COMPLETE")
+            print("BATCH COMPLETE")
             print(f"{'='*80}")
             print(f"Papers added: {len(papers)}")
             print(f"Total chunks: {total_chunks}")
@@ -362,9 +362,7 @@ class KnowledgeBase:
 
         for prop in all_props:
             # Query for similar propositions
-            results = self.retrieval_system.query_propositions_with_scores(
-                prop.text, top_k=20
-            )
+            results = self.retrieval_system.query_propositions_with_scores(prop.text, top_k=20)
 
             for similar_prop, score in results:
                 # Exclude the current paper
@@ -374,10 +372,7 @@ class KnowledgeBase:
                     similar_paper_scores[similar_prop.paper_id].append(score)
 
         # Calculate average similarity score for each paper
-        avg_scores = {
-            pid: sum(scores) / len(scores)
-            for pid, scores in similar_paper_scores.items()
-        }
+        avg_scores = {pid: sum(scores) / len(scores) for pid, scores in similar_paper_scores.items()}
 
         # Sort by score and get top-k
         sorted_papers = sorted(avg_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
@@ -385,9 +380,7 @@ class KnowledgeBase:
         # Return Paper objects with their scores
         return [(self.get_paper(pid), score) for pid, score in sorted_papers]
 
-    def find_similar_propositions(
-        self, proposition_id: str, top_k: int = 5
-    ) -> List[tuple[Proposition, float]]:
+    def find_similar_propositions(self, proposition_id: str, top_k: int = 5) -> List[tuple[Proposition, float]]:
         """Find propositions similar to the given proposition.
 
         Args:
@@ -402,22 +395,14 @@ class KnowledgeBase:
             return []
 
         # Query for similar propositions
-        results = self.retrieval_system.query_propositions_with_scores(
-            proposition.text, top_k=top_k + 1
-        )
+        results = self.retrieval_system.query_propositions_with_scores(proposition.text, top_k=top_k + 1)
 
         # Filter out the proposition itself and limit to top_k
-        similar_props = [
-            (prop, score)
-            for prop, score in results
-            if prop.prop_id != proposition_id
-        ][:top_k]
+        similar_props = [(prop, score) for prop, score in results if prop.prop_id != proposition_id][:top_k]
 
         return similar_props
 
-    def find_similar_chunks(
-        self, chunk_id: str, top_k: int = 5
-    ) -> List[tuple[Chunk, float]]:
+    def find_similar_chunks(self, chunk_id: str, top_k: int = 5) -> List[tuple[Chunk, float]]:
         """Find chunks similar to the given chunk.
 
         Args:
@@ -432,16 +417,10 @@ class KnowledgeBase:
             return []
 
         # Query for similar chunks
-        results = self.retrieval_system.query_chunks_with_scores(
-            chunk.text, top_k=top_k + 1
-        )
+        results = self.retrieval_system.query_chunks_with_scores(chunk.text, top_k=top_k + 1)
 
         # Filter out the chunk itself and limit to top_k
-        similar_chunks = [
-            (c, score)
-            for c, score in results
-            if c.chunk_id != chunk_id
-        ][:top_k]
+        similar_chunks = [(c, score) for c, score in results if c.chunk_id != chunk_id][:top_k]
 
         return similar_chunks
 
@@ -572,7 +551,7 @@ class KnowledgeBase:
         # Create directory if it doesn't exist
         if not os.path.exists(path):
             print(f"   Knowledge base directory not found at {path}")
-            print(f"   Creating directory and initializing empty knowledge base...")
+            print("   Creating directory and initializing empty knowledge base...")
             os.makedirs(path, exist_ok=True)
             self.papers = {}
             self.initialize_id_counters()
@@ -582,7 +561,7 @@ class KnowledgeBase:
         db_path = os.path.join(path, "papers.db")
         if not os.path.exists(db_path):
             print(f"   Database not found at {db_path}")
-            print(f"   Initializing empty knowledge base (database will be created on first save)")
+            print("   Initializing empty knowledge base (database will be created on first save)")
             self.papers = {}
             self.initialize_id_counters()
             return
@@ -639,7 +618,7 @@ class KnowledgeBase:
                 if paper_id in self.papers:
                     self.papers[paper_id].propositions.append(prop)
 
-        print(f"   Reconstructed chunks and propositions from vector stores")
+        print("   Reconstructed chunks and propositions from vector stores")
 
     def _rebuild_vector_stores(self):
         """Rebuild vector stores from existing papers."""

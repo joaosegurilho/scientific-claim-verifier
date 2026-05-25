@@ -21,7 +21,6 @@ from scverifier.core.knowledge.literature_search import LiteratureSearch
 from scverifier.core.agents import tools
 from scverifier.data.models import VerificationResult, Proposition
 from scverifier.core.verification.confidence_interpreter import (
-    get_confidence_interpretation,
     CONFIDENCE_INTERPRETATIONS,
 )
 
@@ -409,17 +408,17 @@ You MUST respond with a verdict. Do not ask for more information or more time.""
 
         try:
             # Run agent
-            print(f"  Starting agent verification...")
+            print("  Starting agent verification...")
             result = self.agent.invoke({"messages": messages}, config=config)
 
             # Extract final response
             final_response = result["messages"][-1].content
-            print(f"  Agent completed. Parsing response...")
+            print("  Agent completed. Parsing response...")
 
             # Extract IDs and token usage from tool messages in conversation history
             for msg in result["messages"]:
                 # Collect token usage from all messages
-                if hasattr(msg, 'usage_metadata') and msg.usage_metadata:
+                if hasattr(msg, "usage_metadata") and msg.usage_metadata:
                     total_input_tokens += msg.usage_metadata.get("input_tokens", 0)
                     total_output_tokens += msg.usage_metadata.get("output_tokens", 0)
 
@@ -455,7 +454,7 @@ You MUST respond with a verdict. Do not ask for more information or more time.""
                 }
                 result = self.agent.invoke({"messages": messages}, config=force_config)
                 final_response = result["messages"][-1].content
-                print(f"  Forced verdict received.")
+                print("  Forced verdict received.")
 
                 # Extract IDs from forced conversation
                 for msg in result["messages"]:
@@ -492,8 +491,12 @@ You MUST respond with a verdict. Do not ask for more information or more time.""
             }
 
         return VerificationResult(
-            claim=claim, verdict=verdict, confidence=confidence, reasoning=reasoning, evidence=evidence,
-            token_usage=token_usage
+            claim=claim,
+            verdict=verdict,
+            confidence=confidence,
+            reasoning=reasoning,
+            evidence=evidence,
+            token_usage=token_usage,
         )
 
     def _normalize_content(self, content) -> str:

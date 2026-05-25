@@ -35,33 +35,29 @@ def create_test_claims_file(num_claims=1):
         {
             "id": 1001,
             "claim": "Regular physical exercise reduces blood pressure in adults.",
-            "evidence": {
-                "123": [{"label": "SUPPORT", "sentences": [0, 1, 2]}]
-            },
-            "cited_doc_ids": [123]
+            "evidence": {"123": [{"label": "SUPPORT", "sentences": [0, 1, 2]}]},
+            "cited_doc_ids": [123],
         },
         {
             "id": 1002,
             "claim": "Vitamin C supplements cure the common cold.",
-            "evidence": {
-                "456": [{"label": "CONTRADICT", "sentences": [3, 4, 5]}]
-            },
-            "cited_doc_ids": [456]
+            "evidence": {"456": [{"label": "CONTRADICT", "sentences": [3, 4, 5]}]},
+            "cited_doc_ids": [456],
         },
         {
             "id": 1003,
             "claim": "Green tea consumption prevents all forms of cancer.",
             "evidence": {},
-            "cited_doc_ids": []
+            "cited_doc_ids": [],
         },
     ]
 
     # Create temporary file
-    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False)
+    temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False)
 
     for i, claim in enumerate(test_claims[:num_claims]):
         json.dump(claim, temp_file)
-        temp_file.write('\n')
+        temp_file.write("\n")
 
     temp_file.flush()
     temp_file.close()
@@ -79,12 +75,12 @@ def test_benchmark_runner(use_search=False, num_claims=1):
     # Import here to avoid circular imports and to show it works
     from scverifier.core.benchmarking.run_benchmark import BenchmarkRunner
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("BENCHMARK RUNNER TEST")
-    print("="*70)
+    print("=" * 70)
     print(f"Number of claims: {num_claims}")
     print(f"Use search: {use_search}")
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")
 
     # Create test directory
     test_results_dir = Path("tests/test_benchmark_runner_output")
@@ -98,10 +94,7 @@ def test_benchmark_runner(use_search=False, num_claims=1):
     try:
         # Load benchmark
         print("Loading benchmark...")
-        benchmark = SciFact(
-            claims_file=claims_file,
-            verification_method=VerificationMethod.AGENTLESS
-        )
+        benchmark = SciFact(claims_file=claims_file, verification_method=VerificationMethod.AGENTLESS)
         benchmark.load(max_items=num_claims)
         print(f"Loaded {len(benchmark.items)} item(s)\n")
 
@@ -118,15 +111,15 @@ def test_benchmark_runner(use_search=False, num_claims=1):
         print(f"Results will be saved to: {runner.run_dir}\n")
 
         # Run benchmark
-        print("="*70)
+        print("=" * 70)
         print("RUNNING BENCHMARK")
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
         runner.run(use_search=use_search, max_papers=5)
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("TEST COMPLETE")
-        print("="*70)
+        print("=" * 70)
         print(f"\nResults saved to: {runner.run_dir}")
 
         # Print key results
@@ -141,12 +134,11 @@ def test_benchmark_runner(use_search=False, num_claims=1):
             print(f"  Failed: {summary['failed']}/{summary['total_items']}")
 
             print("\nPer-claim results:")
-            for result in summary['results']:
-                status = "✓" if result['correct'] else "✗"
-                print(f"  {status} {result['claim_id']}: "
-                      f"{result['predicted']} (expected: {result['expected']})")
+            for result in summary["results"]:
+                status = "✓" if result["correct"] else "✗"
+                print(f"  {status} {result['claim_id']}: " f"{result['predicted']} (expected: {result['expected']})")
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
 
         # Cleanup
         Path(claims_file).unlink()
@@ -167,30 +159,18 @@ def test_benchmark_runner(use_search=False, num_claims=1):
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Test the BenchmarkRunner with a small number of claims"
+    parser = argparse.ArgumentParser(description="Test the BenchmarkRunner with a small number of claims")
+    parser.add_argument(
+        "--use-search", action="store_true", help="Use online paper search (otherwise uses existing KB only)"
     )
     parser.add_argument(
-        "--use-search",
-        action="store_true",
-        help="Use online paper search (otherwise uses existing KB only)"
-    )
-    parser.add_argument(
-        "--num-claims",
-        type=int,
-        default=1,
-        choices=[1, 2, 3],
-        help="Number of test claims to run (1-3, default: 1)"
+        "--num-claims", type=int, default=1, choices=[1, 2, 3], help="Number of test claims to run (1-3, default: 1)"
     )
 
     args = parser.parse_args()
 
-    success = test_benchmark_runner(
-        use_search=args.use_search,
-        num_claims=args.num_claims
-    )
+    success = test_benchmark_runner(use_search=args.use_search, num_claims=args.num_claims)
 
-    import sys
     sys.exit(0 if success else 1)
 
 

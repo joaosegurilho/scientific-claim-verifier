@@ -45,7 +45,7 @@ def load_metadata(metadata_file: Path) -> dict:
 
 def list_all_jobs():
     """List all batch jobs with their statuses.
-    
+
     Each file is shown independently with its own status.
     """
     print("\n=== All Batch Jobs ===\n")
@@ -61,7 +61,7 @@ def list_all_jobs():
 
     for metadata_file in metadata_files:
         metadata = load_metadata(metadata_file)
-        
+
         filename = metadata_file.name
         timestamp = metadata.get("timestamp", "unknown")
         num_papers = len(metadata.get("papers", {}))
@@ -74,7 +74,7 @@ def list_all_jobs():
         print(f"  Papers: {num_papers}, Chunks: {num_chunks}, Claims: {num_claims}")
 
         if not batch_job_id:
-            print(f"  Status: NOT_SUBMITTED")
+            print("  Status: NOT_SUBMITTED")
         else:
             try:
                 batch_job = client.batches.get(name=batch_job_id)
@@ -84,19 +84,19 @@ def list_all_jobs():
             except Exception as e:
                 print(f"  Status: ERROR - {str(e)[:80]}")
                 print(f"  Job ID: {batch_job_id}")
-        
+
         print()
 
 
 def find_metadata_by_job_id(job_id: str) -> Path:
     """Find metadata file containing the given job ID."""
     metadata_files = get_metadata_files()
-    
+
     for metadata_file in metadata_files:
         metadata = load_metadata(metadata_file)
         if metadata.get("batch_job_id") == job_id:
             return metadata_file
-    
+
     return None
 
 
@@ -113,14 +113,14 @@ def find_latest_job():
         metadata = load_metadata(metadata_file)
         if metadata.get("batch_job_id"):
             return metadata.get("batch_job_id"), metadata_file
-    
+
     print("No submitted batch jobs found.")
     return None, None
 
 
 def monitor_job(job_id: str, metadata_file: Path = None, poll_interval: int = 30):
     """Monitor a specific batch job and download results when complete.
-    
+
     Args:
         job_id: Google batch job ID to monitor
         metadata_file: Path to metadata file for this job
@@ -201,7 +201,7 @@ def monitor_job(job_id: str, metadata_file: Path = None, poll_interval: int = 30
                         print("\nSummary:")
                         print(f"  - Results: {num_results} lines")
 
-                        print(f"\nNext step:")
+                        print("\nNext step:")
                         print(f"  python process_batch_results.py --results-file {results_file}")
 
                     else:
@@ -265,22 +265,22 @@ def main():
         if not metadata_file.exists():
             print(f"Error: Metadata file not found: {metadata_file}")
             return 1
-        
+
         metadata = load_metadata(metadata_file)
         job_id = metadata.get("batch_job_id")
-        
+
         if not job_id:
-            print(f"Error: Metadata file has no batch_job_id. Has it been submitted?")
+            print("Error: Metadata file has no batch_job_id. Has it been submitted?")
             return 1
-        
+
         print(f"Monitoring job from metadata file: {metadata_file.name}")
         monitor_job(job_id, metadata_file, args.poll_interval)
-        
+
     elif args.job_id:
         # Monitor specific job ID
         job_id = args.job_id
         monitor_job(job_id, None, args.poll_interval)
-        
+
     else:
         # Find and monitor latest job
         job_id, metadata_file = find_latest_job()

@@ -72,20 +72,20 @@ def load_corpus(corpus_path: Path, candidates_path: Path = None) -> Dict[int, di
     """
     print(f"\nLoading corpus from {corpus_path}...")
     corpus = {}
-    with open(corpus_path, 'r', encoding='utf-8') as f:
+    with open(corpus_path, "r", encoding="utf-8") as f:
         for line in f:
             entry = json.loads(line)
-            corpus[entry['doc_id']] = entry
+            corpus[entry["doc_id"]] = entry
     print(f"  Loaded {len(corpus)} papers from main corpus")
 
     # Load candidates as fallback if provided
     if candidates_path and candidates_path.exists():
         print(f"  Loading additional papers from {candidates_path}...")
         candidates_count = 0
-        with open(candidates_path, 'r', encoding='utf-8') as f:
+        with open(candidates_path, "r", encoding="utf-8") as f:
             for line in f:
                 entry = json.loads(line)
-                doc_id = entry['doc_id']
+                doc_id = entry["doc_id"]
                 # Only add if not already in main corpus
                 if doc_id not in corpus:
                     corpus[doc_id] = entry
@@ -113,7 +113,7 @@ def get_all_claim_doc_ids(data_dir: Path) -> Set[int]:
     scifact_dir = data_dir / "scifact_data"
     claims_file = scifact_dir / "claims_dev.jsonl"
     if claims_file.exists():
-        with open(claims_file, 'r', encoding='utf-8') as f:
+        with open(claims_file, "r", encoding="utf-8") as f:
             for line in f:
                 claim = json.loads(line)
                 # Get cited_doc_ids
@@ -193,11 +193,13 @@ def chunk_papers(papers: List[Paper]) -> tuple:
 
         for chunk in paper_chunks:
             all_chunks[chunk.chunk_id] = chunk
-            chunk_keys_by_paper[paper.id].append({
-                "key": f"corpus|{paper.id}|{chunk.chunk_id}",
-                "paper_id": paper.id,
-                "chunk_id": chunk.chunk_id,
-            })
+            chunk_keys_by_paper[paper.id].append(
+                {
+                    "key": f"corpus|{paper.id}|{chunk.chunk_id}",
+                    "paper_id": paper.id,
+                    "chunk_id": chunk.chunk_id,
+                }
+            )
 
     print(f"  Created {len(all_chunks)} chunks from {len(all_papers)} papers")
     return all_papers, all_chunks, chunk_keys_by_paper
@@ -336,7 +338,7 @@ def split_by_papers(
     chunk_keys_by_paper: Dict[str, List[dict]],
     all_papers: Dict[str, Paper],
     all_chunks: Dict,
-    chunk_size: int | None = None
+    chunk_size: int | None = None,
 ) -> List[Dict[str, Any]]:
     """Split data into parts, keeping all chunks from same paper together.
 
@@ -505,29 +507,18 @@ def main():
         "--corpus",
         type=str,
         default="data/msvec_data/corpus.jsonl",
-        help="Path to corpus.jsonl file (default: data/msvec_data/corpus.jsonl)"
+        help="Path to corpus.jsonl file (default: data/msvec_data/corpus.jsonl)",
     )
     parser.add_argument(
         "--data-dir",
         type=str,
         default="data",
-        help="Path to data directory containing scifact_data and msvec_data (default: data)"
+        help="Path to data directory containing scifact_data and msvec_data (default: data)",
     )
+    parser.add_argument("--offset", type=int, default=0, help="Starting paper index (default: 0)")
+    parser.add_argument("--limit", type=int, help="Number of papers to process (default: all remaining after offset)")
     parser.add_argument(
-        "--offset",
-        type=int,
-        default=0,
-        help="Starting paper index (default: 0)"
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        help="Number of papers to process (default: all remaining after offset)"
-    )
-    parser.add_argument(
-        "--skip-kb-filter",
-        action="store_true",
-        help="Skip filtering out papers already in knowledge base"
+        "--skip-kb-filter", action="store_true", help="Skip filtering out papers already in knowledge base"
     )
 
     args = parser.parse_args()
@@ -578,7 +569,7 @@ def main():
         return 1
 
     end_idx = min(args.offset + args.limit, total_available) if args.limit else total_available
-    papers = all_papers[args.offset:end_idx]
+    papers = all_papers[args.offset : end_idx]
 
     if args.offset > 0 or args.limit:
         print(f"  Processing papers {args.offset} to {end_idx-1} ({len(papers)} papers)")
@@ -647,7 +638,7 @@ def main():
     for f in created_files:
         print(f"  - {f.name}")
 
-    print(f"\nNext step: Submit each batch file to Google's Batch API:")
+    print("\nNext step: Submit each batch file to Google's Batch API:")
     for f in created_files:
         print(f"  python submit_batch.py --batch-file {f}")
 

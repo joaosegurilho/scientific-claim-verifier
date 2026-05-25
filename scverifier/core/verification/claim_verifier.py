@@ -121,7 +121,7 @@ Provide your verification analysis:"""
 
         # Extract token usage if available from raw response
         token_usage = None
-        if raw_message and hasattr(raw_message, 'usage_metadata') and raw_message.usage_metadata:
+        if raw_message and hasattr(raw_message, "usage_metadata") and raw_message.usage_metadata:
             token_usage = {
                 "input_tokens": raw_message.usage_metadata.get("input_tokens", 0),
                 "output_tokens": raw_message.usage_metadata.get("output_tokens", 0),

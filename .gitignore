@@ -1,9 +1,13 @@
 # Mine
 .venv
+.vscode
 
-
-
-
+# data
+benchmark_results/*
+data/*
+tests/simple_extraction_tests/*
+tests/test_benchmark_output/*
+tests/test_benchmark_runner_output/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

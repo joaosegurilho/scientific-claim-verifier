@@ -1,17 +1,16 @@
 """Literature search functionality for finding papers from external APIs."""
 
-from typing import List, Dict, Any
 from time import sleep
-from langchain_google_genai import ChatGoogleGenerativeAI
+from typing import Any, Dict, List
 
+from scverifier.api.api import API
 from scverifier.api.api_core import CoreAPI
+from scverifier.api.api_openalex import OpenAlexAPI
 from scverifier.api.api_pmc import PMCAPI
 from scverifier.api.api_pubmed import PubMedAPI
 from scverifier.api.api_semantic_scholar import SemanticScholarAPI
-from scverifier.api.api_openalex import OpenAlexAPI
-from scverifier.api.api import API
-from scverifier.data.models import Paper
 from scverifier.config.settings import Config
+from scverifier.data.models import Paper
 
 
 class LiteratureSearch:
@@ -47,8 +46,10 @@ class LiteratureSearch:
         Returns:
             Dictionary with 'original', 'opposite', and 'neutral' queries
         """
-        llm = ChatGoogleGenerativeAI(
-            model=Config.LLM_MODEL, temperature=Config.LLM_TEMPERATURE, timeout=Config.LLM_TIMEOUT
+        llm = Config.with_llm(
+            model=Config.LLM_MODEL,
+            temperature=Config.LLM_TEMPERATURE,
+            timeout=Config.LLM_TIMEOUT,
         )
 
         prompt = f"""You are a scientific literature search expert. Given this scientific claim: "{claim}"
@@ -98,13 +99,13 @@ Now generate for the given claim:"""
         Returns:
             List of generated paper title queries
         """
-        llm = ChatGoogleGenerativeAI(model=Config.LLM_MODEL, temperature=temp, timeout=Config.LLM_TIMEOUT)
+        llm = Config.with_llm(model=Config.LLM_MODEL, temperature=temp, timeout=Config.LLM_TIMEOUT)
 
         prompt = f"""You are a scientific literature search expert. Given these research queries:
 
-ORIGINAL: {search_queries.get('original', '')}
-OPPOSITE: {search_queries.get('opposite', '')}  
-NEUTRAL: {search_queries.get('neutral', '')}
+ORIGINAL: {search_queries.get("original", "")}
+OPPOSITE: {search_queries.get("opposite", "")}  
+NEUTRAL: {search_queries.get("neutral", "")}
 
 Generate 10 SPECIFIC paper titles that would help find relevant research papers.
 Return ONLY the titles, one per line, no numbering.
@@ -132,7 +133,11 @@ Now generate titles for the queries above:"""
     # ======================== PAPER SEARCH ========================
 
     def search_papers(
-        self, query: str, search_queries: Dict[str, str] = None, max_papers: int = 30, verbose: bool = True
+        self,
+        query: str,
+        search_queries: Dict[str, str] = None,
+        max_papers: int = 30,
+        verbose: bool = True,
     ) -> List[Paper]:
         """Search for papers across multiple academic APIs.
 

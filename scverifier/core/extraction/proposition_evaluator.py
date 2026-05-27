@@ -1,11 +1,16 @@
 """Enhanced proposition quality evaluation using LLMs."""
 
 from typing import List
+
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 from scverifier.config.settings import Config
-from scverifier.data.models import GradePropositions, Proposition, Chunk, PropositionEvaluation
+from scverifier.data.models import (
+    Chunk,
+    GradePropositions,
+    Proposition,
+    PropositionEvaluation,
+)
 
 
 class PropositionEvaluator:
@@ -15,8 +20,10 @@ class PropositionEvaluator:
         Config.setup_environment()
 
         # Initialize LLM
-        self.llm = ChatGoogleGenerativeAI(
-            model=Config.LLM_MODEL, temperature=Config.LLM_TEMPERATURE, timeout=Config.LLM_TIMEOUT
+        self.llm = Config.with_llm(
+            model=Config.LLM_MODEL,
+            temperature=Config.LLM_TEMPERATURE,
+            timeout=Config.LLM_TIMEOUT,
         )
         self.structured_llm = self.llm.with_structured_output(GradePropositions)
 
@@ -179,13 +186,13 @@ class PropositionEvaluator:
         print(f"Total propositions: {total}")
         print(f"Passed quality check: {passed}")
         print(f"Failed quality check: {failed}")
-        print(f"Success rate: {passed/total*100:.1f}%" if total > 0 else "Success rate: 0.0%")
+        print(f"Success rate: {passed / total * 100:.1f}%" if total > 0 else "Success rate: 0.0%")
 
         if failed > 0:
             print("\n=== Failed Propositions ===")
             failed_props = self.get_failed_propositions(evaluated_propositions)
             for i, prop in enumerate(failed_props):
-                print(f"{i+1}) Proposition: {prop.text}")
+                print(f"{i + 1}) Proposition: {prop.text}")
                 if prop.evaluation:
                     print(f"   Scores: {prop.evaluation.to_dict()}")
                     print(f"   Average: {prop.evaluation.average_score():.1f}/10")

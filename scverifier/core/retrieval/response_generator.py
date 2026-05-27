@@ -1,8 +1,9 @@
 """RAG-style response generation using retrieved propositions and chunks."""
 
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
+
 from scverifier.config.settings import Config
 from scverifier.data.models import Proposition
 
@@ -20,8 +21,10 @@ class ResponseGenerator:
         Config.setup_environment()
 
         # Initialize LLM
-        self.llm = ChatGoogleGenerativeAI(
-            model=Config.LLM_MODEL, temperature=Config.LLM_TEMPERATURE, timeout=Config.LLM_TIMEOUT
+        self.llm = Config.with_llm(
+            model=Config.LLM_MODEL,
+            temperature=Config.LLM_TEMPERATURE,
+            timeout=Config.LLM_TIMEOUT,
         )
 
         # Create prompt template and chain

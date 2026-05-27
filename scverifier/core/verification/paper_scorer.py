@@ -1,12 +1,12 @@
 """Paper credibility scoring system with simple 1-5 rating."""
 
-from typing import List, Optional
 from datetime import datetime
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
+from typing import List, Optional
 
-from scverifier.data.models import Paper, CredibilityScores, PaperMetadata
+from langchain_core.prompts import ChatPromptTemplate
+
 from scverifier.config.settings import Config
+from scverifier.data.models import CredibilityScores, Paper, PaperMetadata
 
 
 class PaperScorer:
@@ -26,8 +26,14 @@ class PaperScorer:
     # Study types: (score, description)
     # Higher quality study designs receive higher scores (1-5 stars)
     STUDY_TYPES = {
-        "meta_analysis": (4, "Systematic review that combines results from multiple studies statistically"),
-        "systematic_review": (4, "Comprehensive review following systematic methodology"),
+        "meta_analysis": (
+            4,
+            "Systematic review that combines results from multiple studies statistically",
+        ),
+        "systematic_review": (
+            4,
+            "Comprehensive review following systematic methodology",
+        ),
         "rct": (3, "Randomized controlled trial"),
         "computational": (2, "Computational or in silico study"),
         "cohort": (2, "Cohort study (follows groups over time)"),
@@ -53,7 +59,7 @@ class PaperScorer:
         self.timeout = llm_timeout if llm_timeout is not None else Config.LLM_TIMEOUT
 
         # Initialize LLM for metadata extraction
-        self.llm = ChatGoogleGenerativeAI(model=Config.LLM_MODEL, temperature=0, timeout=self.timeout)
+        self.llm = Config.with_llm(model=Config.LLM_MODEL, temperature=0, timeout=self.timeout)
         self.structured_llm = self.llm.with_structured_output(PaperMetadata)
 
         # Create metadata extraction prompt
@@ -204,7 +210,11 @@ Extract the metadata:"""
                 self.score_paper(paper)
 
         # Sort by rating (descending)
-        return sorted(papers, key=lambda x: x.credibility.rating if x.credibility else 1, reverse=True)
+        return sorted(
+            papers,
+            key=lambda x: x.credibility.rating if x.credibility else 1,
+            reverse=True,
+        )
 
     # ======================== DETECTION & SCORING METHODS ========================
 
@@ -278,7 +288,7 @@ Extract the metadata:"""
         except Exception:
             # Fallback to alternate model
             print(f"         ⚠ Primary model failed, falling back to {Config.LLM_FALLBACK_MODEL}...")
-            self.llm = ChatGoogleGenerativeAI(model=Config.LLM_FALLBACK_MODEL, temperature=0, timeout=self.timeout)
+            self.llm = Config.with_llm(model=Config.LLM_FALLBACK_MODEL, temperature=0, timeout=self.timeout)
             self.structured_llm = self.llm.with_structured_output(PaperMetadata)
             self.metadata_extractor = self.prompt | self.structured_llm
             # Retry with fallback model

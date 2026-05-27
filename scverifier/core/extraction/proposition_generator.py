@@ -1,11 +1,11 @@
 """Improved proposition generation from document chunks using LLMs."""
 
 from typing import List
+
 from langchain_core.prompts import ChatPromptTemplate, FewShotChatMessagePromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 from scverifier.config.settings import Config
-from scverifier.data.models import GeneratePropositions, Proposition, Chunk
+from scverifier.data.models import Chunk, GeneratePropositions, Proposition
 from scverifier.utils.id_generator import get_next_prop_id
 
 
@@ -19,8 +19,10 @@ class PropositionGenerator:
         Config.setup_environment()
 
         # Initialize LLM
-        self.llm = ChatGoogleGenerativeAI(
-            model=Config.LLM_MODEL, temperature=Config.LLM_TEMPERATURE, timeout=Config.LLM_TIMEOUT
+        self.llm = Config.with_llm(
+            model=Config.LLM_MODEL,
+            temperature=Config.LLM_TEMPERATURE,
+            timeout=Config.LLM_TIMEOUT,
         )
         self.structured_llm = self.llm.with_structured_output(GeneratePropositions)
 

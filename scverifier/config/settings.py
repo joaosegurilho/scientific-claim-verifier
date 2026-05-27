@@ -1,8 +1,12 @@
 """Configuration settings for the Proposition-based Retrieval Pipeline."""
 
 import os
-from dotenv import load_dotenv
 from time import sleep
+
+from dotenv import load_dotenv
+from langchain.chat_models import BaseChatModel, init_chat_model
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import AzureChatOpenAI
 
 # Load environment variables
 load_dotenv()
@@ -12,6 +16,9 @@ class Config:
     """Configuration class for the pipeline."""
 
     # API Keys
+    AZURE_API_KEY = os.getenv("AZURE_API_KEY")
+    AZURE_ENDPOINT = os.getenv("AZURE_ENDPOINT")
+    AZURE_DEPLOYMENT_NAME = os.getenv("AZURE_DEPLOYMENT_NAME")
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     SEMANTIC_SCHOLAR_API_KEY = os.getenv("SEMANTIC_SCHOLAR_API_KEY")
     CORE_API_KEY = os.getenv("CORE_API_KEY")
@@ -34,7 +41,12 @@ class Config:
     CHUNK_OVERLAP = 50
 
     # Quality Thresholds
-    QUALITY_THRESHOLDS = {"accuracy": 7, "clarity": 7, "completeness": 7, "conciseness": 7}
+    QUALITY_THRESHOLDS = {
+        "accuracy": 7,
+        "clarity": 7,
+        "completeness": 7,
+        "conciseness": 7,
+    }
 
     # Default Retrieval Settings
     CHUNK_RETRIEVAL_K = 8  # Number of chunks to retrieve
@@ -95,3 +107,40 @@ class Config:
                     raise e
                 print(f"        Retry {attempt + 1}/{max_retries} after error: {str(e)[:50]}")
                 sleep(2)
+
+    @classmethod
+    def with_llm(
+        cls, temperature: int = 0, max_tokens: int = 6000, timeout: int = 120
+    ) -> AzureChatOpenAI | BaseChatModel:
+        """Deploy an LLM."""
+
+        if cls.LLM_MODEL.startswith("gpt"):
+            llm = AzureChatOpenAI(
+                azure_endpoint=cls.AZURE_ENDPOINT,
+                api_key=cls.AZURE_KEY,
+                api_version=cls.AZURE_API_VERSION,
+                azure_deployment=cls.LLM_MODEL,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                timeout=timeout,
+            )
+        elif cls.LLM_MODEL.startswith("gemini"):
+            llm = ChatGoogleGenerativeAI(
+                model=cls.LLM_MODEL,
+                google_api_key=cls.GEMINI_API_KEY,
+                temperature=temperature,
+                timeout=timeout,
+            )
+        else:
+            # Works for DeepSeek, Mistral, etc.
+            # model = init_chat_model("azure_ai:DeepSeek-R1-0528")
+            llm = init_chat_model(
+                cls.LLM_MODEL,
+                api_key=cls.AZURE_KEY,
+                model_provider="azure_ai",
+                temperature=temperature,
+                max_tokens=max_tokens,
+                timeout=timeout,
+            )
+
+        return llm

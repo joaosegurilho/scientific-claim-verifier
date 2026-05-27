@@ -9,20 +9,20 @@ to verify a scientific claim. It uses LangGraph's pattern to:
 """
 
 import re
-from typing import Optional, AsyncGenerator, Dict, Any
-from langchain_google_genai import ChatGoogleGenerativeAI
+from typing import Any, AsyncGenerator, Dict, Optional
+
 from langchain.agents import create_agent
-from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.messages import AIMessage, ToolMessage
+from langgraph.checkpoint.memory import MemorySaver
 
 from scverifier.config.settings import Config
+from scverifier.core.agents import tools
 from scverifier.core.knowledge.knowledge_base import KnowledgeBase
 from scverifier.core.knowledge.literature_search import LiteratureSearch
-from scverifier.core.agents import tools
-from scverifier.data.models import VerificationResult, Proposition
 from scverifier.core.verification.confidence_interpreter import (
     CONFIDENCE_INTERPRETATIONS,
 )
+from scverifier.data.models import Proposition, VerificationResult
 
 
 class AutonomousClaimAgent:
@@ -68,11 +68,11 @@ class AutonomousClaimAgent:
             self.tools = tools.get_kb_only_tools()
 
         # Initialize LLM with higher max_output_tokens to prevent truncation
-        self.llm = ChatGoogleGenerativeAI(
+        self.llm = Config.with_llm(
             model=Config.AGENT_MODEL,
             temperature=Config.AGENT_TEMPERATURE,
             timeout=Config.LLM_TIMEOUT,
-            max_output_tokens=Config.AGENT_MAX_OUTPUT_TOKENS,  # Ensure agent has enough tokens for final response
+            max_tokens=Config.AGENT_MAX_OUTPUT_TOKENS,  # Ensure agent has enough tokens for final response
         )
 
         # System prompt for the agent (create before agent initialization)
@@ -81,7 +81,10 @@ class AutonomousClaimAgent:
         # Create autonomous agent with memory
         self.memory = MemorySaver()
         self.agent: Any = create_agent(
-            model=self.llm, tools=self.tools, checkpointer=self.memory, system_prompt=self.system_prompt
+            model=self.llm,
+            tools=self.tools,
+            checkpointer=self.memory,
+            system_prompt=self.system_prompt,
         )
 
         # Set default recursion limit for agent execution
@@ -167,7 +170,10 @@ Now verify the following claim:
         Yields:
             Dict with event type and data for streaming to UI
         """
-        config = {"configurable": {"thread_id": thread_id}, "recursion_limit": self.recursion_limit}
+        config = {
+            "configurable": {"thread_id": thread_id},
+            "recursion_limit": self.recursion_limit,
+        }
 
         # Track all entities seen during search
         seen_proposition_ids = set()
@@ -187,14 +193,20 @@ Now verify the following claim:
                     message_type = type(last_message).__name__
 
                     if debug:
-                        print(f"[DEBUG] Stream event - message type: {message_type}", flush=True)
+                        print(
+                            f"[DEBUG] Stream event - message type: {message_type}",
+                            flush=True,
+                        )
 
                     # Check for tool calls first
                     has_tool_calls = hasattr(last_message, "tool_calls") and last_message.tool_calls
                     has_content = hasattr(last_message, "content") and last_message.content
 
                     if debug:
-                        print(f"[DEBUG] has_tool_calls: {has_tool_calls}, has_content: {has_content}", flush=True)
+                        print(
+                            f"[DEBUG] has_tool_calls: {has_tool_calls}, has_content: {has_content}",
+                            flush=True,
+                        )
 
                     # Determine event type
                     if has_tool_calls:
@@ -216,13 +228,20 @@ Now verify the following claim:
                         seen_paper_ids.update(paper_ids)
                         seen_chunk_ids.update(chunk_ids)
 
-                        yield {"type": "tool_result", "content": content_str, "timestamp": None}
+                        yield {
+                            "type": "tool_result",
+                            "content": content_str,
+                            "timestamp": None,
+                        }
                     elif isinstance(last_message, AIMessage) and last_message.content:
                         # Agent is thinking/responding
                         content = last_message.content
 
                         if debug:
-                            print(f"[DEBUG] AIMessage content type: {type(content)}", flush=True)
+                            print(
+                                f"[DEBUG] AIMessage content type: {type(content)}",
+                                flush=True,
+                            )
 
                         # Handle both string and list-of-dicts content formats
                         if isinstance(content, str):
@@ -247,8 +266,15 @@ Now verify the following claim:
                                 final_message_received = True
 
                             if debug:
-                                print(f"[DEBUG] Yielding agent message, preview: {text_content[:100]}...", flush=True)
-                            yield {"type": "agent_message", "content": text_content, "timestamp": None}
+                                print(
+                                    f"[DEBUG] Yielding agent message, preview: {text_content[:100]}...",
+                                    flush=True,
+                                )
+                            yield {
+                                "type": "agent_message",
+                                "content": text_content,
+                                "timestamp": None,
+                            }
                     else:
                         if debug:
                             print(
@@ -264,7 +290,10 @@ Now verify the following claim:
             # If no final message was received, try to force one
             if not final_message_received:
                 if debug:
-                    print("[DEBUG] No final message received, attempting to force verdict...", flush=True)
+                    print(
+                        "[DEBUG] No final message received, attempting to force verdict...",
+                        flush=True,
+                    )
 
                 force_decision_message = """Based on all the evidence you've gathered, provide your final verdict NOW in the required format:
 
@@ -277,10 +306,15 @@ EVIDENCE_IDS: [Comma-separated list of paper IDs you examined]"""
                 messages.append({"role": "user", "content": force_decision_message})
 
                 try:
-                    force_config = {"configurable": {"thread_id": thread_id + "_force"}, "recursion_limit": 5}
+                    force_config = {
+                        "configurable": {"thread_id": thread_id + "_force"},
+                        "recursion_limit": 5,
+                    }
 
                     async for event in self.agent.astream(
-                        {"messages": messages}, config=force_config, stream_mode="values"
+                        {"messages": messages},
+                        config=force_config,
+                        stream_mode="values",
                     ):
                         if "messages" in event:
                             last_message = event["messages"][-1]
@@ -302,8 +336,15 @@ EVIDENCE_IDS: [Comma-separated list of paper IDs you examined]"""
 
                                 if text_content and ("VERDICT:" in text_content or "REASONING:" in text_content):
                                     if debug:
-                                        print("[DEBUG] Forced verdict received", flush=True)
-                                    yield {"type": "agent_message", "content": text_content, "timestamp": None}
+                                        print(
+                                            "[DEBUG] Forced verdict received",
+                                            flush=True,
+                                        )
+                                    yield {
+                                        "type": "agent_message",
+                                        "content": text_content,
+                                        "timestamp": None,
+                                    }
                                     break
 
                 except Exception as e:
@@ -339,7 +380,9 @@ You MUST respond with a verdict. Do not ask for more information or more time.""
                     }
 
                     async for event in self.agent.astream(
-                        {"messages": messages}, config=force_config, stream_mode="values"
+                        {"messages": messages},
+                        config=force_config,
+                        stream_mode="values",
                     ):
                         if "messages" in event:
                             last_message = event["messages"][-1]
@@ -361,7 +404,11 @@ You MUST respond with a verdict. Do not ask for more information or more time.""
                                     text_content = text_content[8:].strip()
 
                                 if text_content and ("VERDICT:" in text_content or "REASONING:" in text_content):
-                                    yield {"type": "agent_message", "content": text_content, "timestamp": None}
+                                    yield {
+                                        "type": "agent_message",
+                                        "content": text_content,
+                                        "timestamp": None,
+                                    }
                                     break
 
                 except Exception:
@@ -392,7 +439,10 @@ You MUST respond with a verdict. Do not ask for more information or more time.""
         """
         from langgraph.errors import GraphRecursionError
 
-        config = {"configurable": {"thread_id": thread_id}, "recursion_limit": self.recursion_limit}
+        config = {
+            "configurable": {"thread_id": thread_id},
+            "recursion_limit": self.recursion_limit,
+        }
 
         # Create initial message (system prompt is now in agent configuration)
         messages = [{"role": "user", "content": claim}]
@@ -662,7 +712,10 @@ You MUST respond with a verdict. Do not ask for more information or more time.""
         return prop_ids, paper_ids, chunk_ids
 
     def _collect_evidence_from_seen(
-        self, seen_proposition_ids: list[str], seen_paper_ids: list[str], evidence_ids: list[str]
+        self,
+        seen_proposition_ids: list[str],
+        seen_paper_ids: list[str],
+        evidence_ids: list[str],
     ) -> list[Proposition]:
         """Collect evidence propositions from all propositions the agent examined.
 

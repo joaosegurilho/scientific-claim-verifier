@@ -22,41 +22,34 @@ dependencies = [
     "langchain-google-genai",
     "langchain-ollama",
     "langgraph",
-    
     # Vector stores and embeddings
     "faiss-cpu",
-    
     # PDF processing
     "PyPDF2",
     "PyMuPDF",
     "marker-pdf",
-    
     # Data validation and models
     "pydantic",
-    
     # Environment and configuration
     "python-dotenv",
-    
     # API requests
     "requests",
-    
     # Tokenization and text processing
     "tiktoken",
     "pypdf",
     "pdfplumber",
     "pymupdf4llm",
-
     # Benchamrking
     "datasets",
     "huggingface_hub",
     "matplotlib",
     "seaborn",
-
     # webapp
     "fastapi",
     "uvicorn",
     "python-multipart",
     "plotly",
+    "langchain-openai>=1.2.2",
 ]
 
 [project.optional-dependencies]

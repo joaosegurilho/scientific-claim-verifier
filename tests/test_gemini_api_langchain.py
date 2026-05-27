@@ -1,9 +1,10 @@
+import logging
 import os
 import sys
-import logging
 
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
+
+from scverifier.config.settings import Config
 
 # --------------------------------------------------
 # Logging configuration
@@ -36,16 +37,13 @@ logger.info("GEMINI_API_KEY loaded successfully")
 # Initialize LangChain Gemini model
 # --------------------------------------------------
 try:
-    logger.info("Initializing ChatGoogleGenerativeAI")
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        google_api_key=api_key,
-        temperature=0.0,
-        verbose=True,
-    )
-    logger.info("ChatGoogleGenerativeAI initialized successfully")
+    logger.info("Initializing ChatGoogleGenerativeAI - thorugh Config.with_llm")
+
+    llm = Config.with_llm(model="gemini-2.5-flash", temperature=0.0, api_key=api_key)
+
+    logger.info("ChatGoogleGenerativeAI - thorugh Config.with_llm initialized successfully")
 except Exception:
-    logger.exception("Failed to initialize ChatGoogleGenerativeAI")
+    logger.exception("Failed to initialize ChatGoogleGenerativeAI - thorugh Config.with_llm")
     sys.exit(1)
 
 # --------------------------------------------------

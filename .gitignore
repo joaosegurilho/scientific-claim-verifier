@@ -1,6 +1,7 @@
 # Mine
 .venv
 .vscode
+.ruff_cache
 
 # data
 benchmark_results/*

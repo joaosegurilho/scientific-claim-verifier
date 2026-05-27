@@ -1,13 +1,15 @@
 """Scientific claim verification using retrieved evidence with credibility scoring."""
 
 from typing import List, Optional
+
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 from scverifier.config.settings import Config
-from scverifier.data.models import ClaimVerification, Proposition, VerificationResult
 from scverifier.core.knowledge.knowledge_base import KnowledgeBase
-from scverifier.core.verification.confidence_interpreter import CONFIDENCE_INTERPRETATIONS
+from scverifier.core.verification.confidence_interpreter import (
+    CONFIDENCE_INTERPRETATIONS,
+)
+from scverifier.data.models import ClaimVerification, Proposition, VerificationResult
 
 
 class ClaimVerifier:
@@ -33,8 +35,10 @@ class ClaimVerifier:
         Config.setup_environment()
 
         # Initialize LLM with structured output
-        self.llm = ChatGoogleGenerativeAI(
-            model=Config.LLM_MODEL, temperature=Config.LLM_TEMPERATURE, timeout=Config.LLM_TIMEOUT
+        self.llm = Config.with_llm(
+            model=Config.LLM_MODEL,
+            temperature=Config.LLM_TEMPERATURE,
+            timeout=Config.LLM_TIMEOUT,
         )
         self.structured_llm = self.llm.with_structured_output(ClaimVerification, include_raw=True)
 

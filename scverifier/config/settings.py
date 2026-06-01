@@ -19,6 +19,7 @@ class Config:
     AZURE_API_KEY = os.getenv("AZURE_API_KEY")
     AZURE_ENDPOINT = os.getenv("AZURE_ENDPOINT")
     AZURE_DEPLOYMENT_NAME = os.getenv("AZURE_DEPLOYMENT_NAME")
+    AZURE_API_VERSION = os.getenv("AZURE_API_VERSION")
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     SEMANTIC_SCHOLAR_API_KEY = os.getenv("SEMANTIC_SCHOLAR_API_KEY")
     CORE_API_KEY = os.getenv("CORE_API_KEY")
@@ -69,6 +70,11 @@ class Config:
     # Batch processing settings
     BATCH_FILE_SPLIT_LIMIT = 2000  # Maximum number of requests per batch file (split if exceeded)
 
+    FEATURES: set[str] = set()
+    KNOWN_FEAUTURES: set[str] = {}  # Add new features here as they are developed
+
+    # TODO: might be redudndant with environment variable loading at the top - consider consolidating
+    # Might only be needed if other libs require the keys to be a differnt name
     @classmethod
     def setup_environment(cls):
         """Set up environment variables."""
@@ -117,7 +123,7 @@ class Config:
         if cls.LLM_MODEL.startswith("gpt"):
             llm = AzureChatOpenAI(
                 azure_endpoint=cls.AZURE_ENDPOINT,
-                api_key=cls.AZURE_KEY,
+                api_key=cls.AZURE_API_KEY,
                 api_version=cls.AZURE_API_VERSION,
                 azure_deployment=cls.LLM_MODEL,
                 temperature=temperature,
@@ -129,6 +135,7 @@ class Config:
                 model=cls.LLM_MODEL,
                 google_api_key=cls.GEMINI_API_KEY,
                 temperature=temperature,
+                max_tokens=max_tokens,
                 timeout=timeout,
             )
         else:
@@ -136,7 +143,8 @@ class Config:
             # model = init_chat_model("azure_ai:DeepSeek-R1-0528")
             llm = init_chat_model(
                 cls.LLM_MODEL,
-                api_key=cls.AZURE_KEY,
+                api_key=cls.AZURE_API_KEY,
+                api_version=cls.AZURE_API_VERSION,
                 model_provider="azure_ai",
                 temperature=temperature,
                 max_tokens=max_tokens,

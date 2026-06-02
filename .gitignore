@@ -9,6 +9,7 @@ data/*
 tests/simple_extraction_tests/*
 tests/test_benchmark_output/*
 tests/test_benchmark_runner_output/*
+logs/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

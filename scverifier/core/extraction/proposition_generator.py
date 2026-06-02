@@ -185,6 +185,11 @@ class PropositionGenerator:
         for i, chunk in enumerate(chunks):
             propositions = self.generate_propositions_from_chunk(chunk)
             all_propositions.extend(propositions)
-            logger.debug("Analysed chunk %d. Found %d propositions.", i, len(propositions))
+            logger.info(
+                "Analysed chunk %d/%d. Found %d propositions.",
+                i,
+                len(chunks),
+                len(propositions),
+            )
 
         return all_propositions

@@ -1,10 +1,13 @@
 """CORE API interface for open access research papers."""
 
+import logging
 import requests
 import time
 from typing import List, Dict, Any
 from scverifier.config.settings import Config
 from scverifier.api.api import API
+
+logger = logging.getLogger(__name__)
 
 
 class CoreAPI(API):
@@ -37,19 +40,19 @@ class CoreAPI(API):
             return response.json()
 
         except requests.exceptions.Timeout:
-            print(f"  CORE API timeout for: {endpoint}")
+            logger.warning("CORE API timeout for: %s", endpoint)
             return {}
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 522:
-                print("  CORE API temporarily unavailable (522)")
+                logger.warning("CORE API temporarily unavailable (522)")
             else:
-                print(f"  CORE API HTTP error {e.response.status_code}: {e}")
+                logger.warning("CORE API HTTP error %d: %s", e.response.status_code, e)
             return {}
         except requests.exceptions.ConnectionError:
-            print("  CORE API connection error")
+            logger.warning("CORE API connection error")
             return {}
         except Exception as e:
-            print(f"  CORE API unexpected error: {e}")
+            logger.error("CORE API unexpected error: %s", e)
             return {}
 
     def search_papers(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
@@ -73,7 +76,7 @@ class CoreAPI(API):
             data = self._make_request("search/works", json_data=json_data)
 
             if not data or not data.get("results"):
-                print(f"[CORE] No results found for query: {query}")
+                logger.info("No results found for query: %s", query)
                 return []
 
             papers = []
@@ -106,12 +109,12 @@ class CoreAPI(API):
                 papers.append(paper)
 
             if papers:
-                print(f"[CORE] Found {len(papers)} results for query: {query}")
+                logger.info("Found %d results for query: %s", len(papers), query)
 
             return papers
 
         except Exception as e:
-            print(f"[CORE] API error: {e}")
+            logger.error("API error: %s", e)
             return []
 
     def get_paper_details(self, paper_id: str) -> Dict[str, Any]:
@@ -141,5 +144,5 @@ class CoreAPI(API):
             }
 
         except Exception as e:
-            print(f"Error fetching CORE paper details: {e}")
+            logger.error("Error fetching CORE paper details: %s", e)
             return {}

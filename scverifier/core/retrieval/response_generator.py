@@ -1,11 +1,14 @@
 """RAG-style response generation using retrieved propositions and chunks."""
 
+import logging
 from typing import Any, Dict, List
 
 from langchain_core.prompts import ChatPromptTemplate
 
 from scverifier.config.settings import Config
 from scverifier.data.models import Proposition
+
+logger = logging.getLogger(__name__)
 
 
 class ResponseGenerator:

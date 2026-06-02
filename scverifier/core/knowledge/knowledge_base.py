@@ -4,6 +4,7 @@ Works entirely with domain objects (Paper, Proposition, Chunk).
 RetrievalSystem handles the conversion to/from LangChain Documents internally.
 """
 
+import logging
 import os
 from typing import List, Dict, Any, Optional
 import time
@@ -13,6 +14,8 @@ from scverifier.data.database import PaperDatabase
 from scverifier.utils import id_generator
 from scverifier.core.retrieval.retrieval_system import RetrievalSystem
 from scverifier.config.settings import Config
+
+logger = logging.getLogger(__name__)
 
 
 class KnowledgeBase:
@@ -63,7 +66,7 @@ class KnowledgeBase:
                     except Exception:
                         pass
         id_generator.set_counters(chunk=max_chunk, prop=max_prop)
-        print(f"   Initialized ID counters: chunk={max_chunk}, prop={max_prop}")
+        logger.debug("Initialized ID counters: chunk=%d, prop=%d", max_chunk, max_prop)
 
     # ======================== CHUNK MANAGEMENT ========================
 
@@ -113,39 +116,42 @@ class KnowledgeBase:
         """
         if verbose:
             start_time = time.time()
-            print(f"\n{'='*80}")
-            print(f"Adding paper: {paper.title[:70]}")
-            print(f"Paper ID: {paper.id}")
-            print(f"Chunks: {len(paper.chunks)}, Propositions: {len(paper.propositions)}")
-            print(f"{'='*80}")
+            logger.info(
+                "Adding paper: %s (id=%s, chunks=%d, propositions=%d)",
+                paper.title[:70],
+                paper.id,
+                len(paper.chunks),
+                len(paper.propositions),
+            )
 
         # Store/update paper
         t0 = time.time()
         self.papers[paper.id] = paper
         if verbose:
-            print(f"  [1/3] Stored paper object ({time.time() - t0:.3f}s)")
+            logger.debug("[1/3] Stored paper object (%.3fs)", time.time() - t0)
 
         # Add to vector stores - RetrievalSystem handles Document conversion
         if paper.chunks:
             t1 = time.time()
             self.add_chunks_to_vectorstore(paper.chunks, verbose=verbose)
             if verbose:
-                print(f"  [2/3] Added {len(paper.chunks)} chunks to vectorstore ({time.time() - t1:.3f}s)")
+                logger.debug("[2/3] Added %d chunks to vectorstore (%.3fs)", len(paper.chunks), time.time() - t1)
         elif verbose:
-            print("  [2/3] No chunks to add (0.000s)")
+            logger.debug("[2/3] No chunks to add")
 
         if paper.propositions:
             t2 = time.time()
             self.add_propositions_to_vectorstore(paper.propositions, verbose=verbose)
             if verbose:
-                print(f"  [3/3] Added {len(paper.propositions)} propositions to vectorstore ({time.time() - t2:.3f}s)")
+                logger.debug(
+                    "[3/3] Added %d propositions to vectorstore (%.3fs)", len(paper.propositions), time.time() - t2
+                )
         elif verbose:
-            print("  [3/3] No propositions to add (0.000s)")
+            logger.debug("[3/3] No propositions to add")
 
         if verbose:
             total_time = time.time() - start_time
-            print(f"\n  Total time for paper: {total_time:.3f}s")
-            print(f"{'='*80}\n")
+            logger.debug("Total time for paper: %.3fs", total_time)
 
     def add_papers(self, papers: List[Paper], verbose: bool = False) -> None:
         """Add multiple papers to the knowledge base.
@@ -155,14 +161,12 @@ class KnowledgeBase:
             verbose: Whether to print progress messages
         """
         if verbose:
-            print(f"\n{'='*80}")
-            print(f"ADDING {len(papers)} PAPERS TO KNOWLEDGE BASE")
-            print(f"{'='*80}\n")
             start_time = time.time()
+            logger.info("Adding %d papers to knowledge base", len(papers))
 
         for idx, paper in enumerate(papers, 1):
             if verbose:
-                print(f"[{idx}/{len(papers)}] Processing paper...")
+                logger.debug("[%d/%d] Processing paper...", idx, len(papers))
             self.add_paper(paper, verbose=verbose)
 
         if verbose:
@@ -170,16 +174,14 @@ class KnowledgeBase:
             total_props = sum(len(p.propositions) for p in papers)
             total_chunks = sum(len(p.chunks) for p in papers)
             avg_time_per_paper = total_time / len(papers) if papers else 0
-
-            print(f"\n{'='*80}")
-            print("BATCH COMPLETE")
-            print(f"{'='*80}")
-            print(f"Papers added: {len(papers)}")
-            print(f"Total chunks: {total_chunks}")
-            print(f"Total propositions: {total_props}")
-            print(f"Total time: {total_time:.2f}s")
-            print(f"Average time per paper: {avg_time_per_paper:.3f}s")
-            print(f"{'='*80}\n")
+            logger.info(
+                "Batch complete: %d papers, %d chunks, %d props, %.2fs total, %.3fs avg/paper",
+                len(papers),
+                total_chunks,
+                total_props,
+                total_time,
+                avg_time_per_paper,
+            )
 
     def get_paper(self, paper_id: str) -> Optional[Paper]:
         """Get a paper by ID.
@@ -242,7 +244,7 @@ class KnowledgeBase:
         self.retrieval_system.delete_paper_from_vectorstores(paper_id, verbose=verbose)
 
         if verbose:
-            print(f"   Deleted paper '{paper_id}' from knowledge base")
+            logger.info("Deleted paper '%s' from knowledge base", paper_id)
 
         return True
 
@@ -504,11 +506,10 @@ class KnowledgeBase:
         os.makedirs(path, exist_ok=True)
 
         # Save papers to SQLite database
-        print("   Saving papers to SQLite...")
+        logger.info("Saving papers to SQLite...")
         t0 = time.time()
         db_path = os.path.join(path, "papers.db")
 
-        print(f"     Writing {len(self.papers)} papers to database...")
         db = PaperDatabase(db_path)
 
         # Delete papers from database that are no longer in memory
@@ -516,25 +517,25 @@ class KnowledgeBase:
         papers_to_delete = set(db_papers.keys()) - set(self.papers.keys())
         for paper_id in papers_to_delete:
             db.delete_paper(paper_id)
-            print(f"     Deleted paper '{paper_id}' from database")
+            logger.debug("Deleted paper '%s' from database", paper_id)
 
         # Save current papers
         db.save_papers(list(self.papers.values()))
         db.close()
 
         t1 = time.time()
-        print(f"   Saved {len(self.papers)} papers to {db_path} (Total: {t1-t0:.2f}s)")
+        logger.info("Saved %d papers to %s (%.2fs)", len(self.papers), db_path, t1 - t0)
 
         # Save vector stores
-        print("   Saving vector stores...")
+        logger.info("Saving vector stores...")
         t2 = time.time()
         prop_path = os.path.join(path, "propositions")
         chunk_path = os.path.join(path, "chunks")
         self.retrieval_system.save_vectorstores(prop_path, chunk_path)
         t3 = time.time()
-        print(f"   Vector stores saved ({t3-t2:.2f}s)")
+        logger.debug("Vector stores saved (%.2fs)", t3 - t2)
 
-        print(f" Knowledge base saved to {path} (Total: {t3-t0:.2f}s)")
+        logger.info("Knowledge base saved to %s (Total: %.2fs)", path, t3 - t0)
 
     def load(self, path: str = None):
         """Load the knowledge base from disk.
@@ -550,8 +551,8 @@ class KnowledgeBase:
 
         # Create directory if it doesn't exist
         if not os.path.exists(path):
-            print(f"   Knowledge base directory not found at {path}")
-            print("   Creating directory and initializing empty knowledge base...")
+            logger.info("Knowledge base directory not found at %s", path)
+            logger.info("Creating directory and initializing empty knowledge base...")
             os.makedirs(path, exist_ok=True)
             self.papers = {}
             self.initialize_id_counters()
@@ -560,8 +561,8 @@ class KnowledgeBase:
         # Load papers from SQLite database if it exists
         db_path = os.path.join(path, "papers.db")
         if not os.path.exists(db_path):
-            print(f"   Database not found at {db_path}")
-            print("   Initializing empty knowledge base (database will be created on first save)")
+            logger.info("Database not found at %s", db_path)
+            logger.info("Initializing empty knowledge base (database will be created on first save)")
             self.papers = {}
             self.initialize_id_counters()
             return
@@ -569,7 +570,7 @@ class KnowledgeBase:
         db = PaperDatabase(db_path)
         self.papers = db.get_all_papers()
         db.close()
-        print(f"   Loaded {len(self.papers)} papers from {db_path}")
+        logger.info("Loaded %d papers from %s", len(self.papers), db_path)
 
         # Load vector stores with error handling
         prop_path = os.path.join(path, "propositions")
@@ -579,13 +580,13 @@ class KnowledgeBase:
             self.retrieval_system.load_vectorstores(prop_path, chunk_path)
             # Reconstruct chunks and propositions from FAISS and attach to papers
             self._populate_papers_from_vectorstores()
-            print(f" Knowledge base loaded from {path}")
+            logger.info("Knowledge base loaded from %s", path)
             self.print_statistics()
         except Exception as e:
-            print(f"  Warning: Could not load vector stores: {e}")
-            print("   Rebuilding vector stores from papers...")
+            logger.warning("Could not load vector stores: %s", e)
+            logger.info("Rebuilding vector stores from papers...")
             self._rebuild_vector_stores()
-            print("   Vector stores rebuilt successfully")
+            logger.info("Vector stores rebuilt successfully")
             # Save the rebuilt state
             self.save(path)
 
@@ -618,7 +619,7 @@ class KnowledgeBase:
                 if paper_id in self.papers:
                     self.papers[paper_id].propositions.append(prop)
 
-        print("   Reconstructed chunks and propositions from vector stores")
+        logger.debug("Reconstructed chunks and propositions from vector stores")
 
     def _rebuild_vector_stores(self):
         """Rebuild vector stores from existing papers."""
@@ -649,4 +650,4 @@ class KnowledgeBase:
         self.retrieval_system.chunk_vectorstore = None
         self.retrieval_system.proposition_retriever = None
         self.retrieval_system.chunk_retriever = None
-        print(" Knowledge base cleared")
+        logger.info("Knowledge base cleared")

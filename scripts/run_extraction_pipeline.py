@@ -11,6 +11,7 @@ Usage:
     python run_extraction_pipeline.py file1.pdf file2.pdf       # Process multiple files
 """
 
+import argparse
 import os
 import sys
 import traceback
@@ -19,6 +20,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from scverifier.utils.logging_config import configure_logging
 from scverifier.core.extraction.proposition_extractor import PropositionExtractor
 from scverifier.core.knowledge.knowledge_base import KnowledgeBase
 from scverifier.data.file_loader import FileLoader
@@ -112,6 +114,12 @@ def get_demo_paper_path() -> str:
 
 def main():
     """Main function."""
+    parser = argparse.ArgumentParser(description="Extract propositions from PDFs/TXT/MD files into the knowledge base")
+    parser.add_argument("files", nargs="*", help="File(s) or folder(s) to process (default: data/demo_paper.pdf)")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable debug-level logging")
+    args = parser.parse_args()
+    configure_logging(verbose=args.verbose, log_file="logs/extraction.log")
+
     print("\n" + "=" * 70)
     print(" EXTRACTION PIPELINE")
     print("=" * 70)
@@ -134,7 +142,7 @@ def main():
         print("   Starting with empty knowledge base.")
 
     # Get files to process
-    if len(sys.argv) == 1:
+    if not args.files:
         # No arguments - process demo paper
         demo_path = get_demo_paper_path()
 
@@ -148,10 +156,9 @@ def main():
         process_file(demo_path, extractor, local_paper_processor, kb)
     else:
         # Process provided files/folders
-        paths = sys.argv[1:]
         files_to_process = []
 
-        for path in paths:
+        for path in args.files:
             if os.path.isfile(path):
                 files_to_process.append(path)
             elif os.path.isdir(path):

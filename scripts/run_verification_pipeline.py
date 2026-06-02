@@ -20,11 +20,14 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scverifier.pipelines.verification_pipeline import VerificationPipeline
-from scverifier.core.knowledge.knowledge_base import KnowledgeBase
-from scverifier.data.models import VerificationResult
 from scverifier.config.settings import Config
-from scverifier.core.verification.confidence_interpreter import get_confidence_interpretation
+from scverifier.core.knowledge.knowledge_base import KnowledgeBase
+from scverifier.core.verification.confidence_interpreter import (
+    get_confidence_interpretation,
+)
+from scverifier.data.models import VerificationResult
+from scverifier.pipelines.verification_pipeline import VerificationPipeline
+from scverifier.utils.logging_config import configure_logging
 
 
 def format_verdict(verdict: str) -> str:
@@ -142,8 +145,12 @@ def main():
     # Parse arguments
     parser = argparse.ArgumentParser(description="Verify a scientific claim using the verification pipeline")
     parser.add_argument("claim", help="Scientific claim to verify")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable debug-level logging")
     parser.add_argument(
-        "--max-papers", type=int, default=30, help="Maximum number of papers to search for (default: 30)"
+        "--max-papers",
+        type=int,
+        default=30,
+        help="Maximum number of papers to search for (default: 30)",
     )
     parser.add_argument(
         "--kb-only",
@@ -161,6 +168,7 @@ def main():
         help="Use all propositions instead of only quality ones during claim verification. Useful with --kb-only when quality evaluation was skipped during extraction.",
     )
     args = parser.parse_args()
+    configure_logging(verbose=args.verbose, log_file="logs/pipeline.log")
 
     # Print header
     print("\n" + "=" * 70)
@@ -235,10 +243,10 @@ def main():
         # Note: KB already saved incrementally during search
         # This final save is just a safety check
         if not args.kb_only:
-            print(f"\n{'='*70}")
+            print(f"\n{'=' * 70}")
             print("  Note: Knowledge base was saved incrementally during processing")
 
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(" Verification complete!")
         print("=" * 70 + "\n")
 

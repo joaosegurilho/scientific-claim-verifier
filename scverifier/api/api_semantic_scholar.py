@@ -1,10 +1,13 @@
 """Simplified Semantic Scholar API interface with DOI support."""
 
+import logging
 import requests
 import time
 from typing import List, Dict, Any
 from scverifier.config.settings import Config
 from scverifier.api.api import API
+
+logger = logging.getLogger(__name__)
 
 
 class SemanticScholarAPI(API):
@@ -43,7 +46,7 @@ class SemanticScholarAPI(API):
         try:
             data = self._make_request("paper/search", params)
         except Exception as e:
-            print(f"[Semantic Scholar] Request failed: {str(e)}")
+            logger.warning("Request failed: %s", str(e))
             return []
 
         papers = []
@@ -72,8 +75,8 @@ class SemanticScholarAPI(API):
             )
 
         if not papers:
-            print(f"[Semantic Scholar] No results found for query: {query}")
+            logger.info("No results found for query: %s", query)
         else:
-            print(f"[Semantic Scholar] Found {len(papers)} results for query: {query}")
+            logger.info("Found %d results for query: %s", len(papers), query)
 
         return papers

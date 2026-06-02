@@ -1,5 +1,6 @@
 """Stateless verification pipeline using modular components."""
 
+import logging
 from typing import List
 
 from scverifier.core.extraction.proposition_extractor import PropositionExtractor
@@ -9,6 +10,8 @@ from scverifier.core.verification.claim_verifier import ClaimVerifier
 from scverifier.core.verification.paper_scorer import PaperScorer
 from scverifier.data.models import Proposition, VerificationResult
 from scverifier.config.settings import Config
+
+logger = logging.getLogger(__name__)
 
 
 class VerificationPipeline:
@@ -66,32 +69,30 @@ class VerificationPipeline:
         Returns:
             VerificationResult with verdict, confidence, reasoning, and evidence
         """
-        print("\n CLAIM VERIFICATION WITH SEARCH")
-        print("=" * 60)
-        print(f"Claim: {claim}\n")
+        logger.info("Claim verification with search: %s", claim)
 
         # Phase 1: Search for relevant papers
-        print(f" Phase 1: Searching for {max_papers} relevant papers...")
+        logger.info("Phase 1: Searching for %d relevant papers...", max_papers)
         search_queries = self.literature_search.generate_search_queries(claim)
 
-        print(f"   • Original query: {search_queries['original']}")
-        print(f"   • Opposite query: {search_queries.get('opposite', 'N/A')}")
-        print(f"   • Neutral query: {search_queries.get('neutral', 'N/A')}")
+        logger.info("  Original query: %s", search_queries["original"])
+        logger.info("  Opposite query: %s", search_queries.get("opposite", "N/A"))
+        logger.info("  Neutral query: %s", search_queries.get("neutral", "N/A"))
 
         papers_found = self.literature_search.search_papers(
             query=claim, search_queries=search_queries, max_papers=max_papers, verbose=True
         )
-        print(f"   Retrieved {len(papers_found)} papers")
+        logger.info("  Retrieved %d papers", len(papers_found))
 
         # Phase 2: Process new papers (skip already processed ones)
-        print("\n Phase 2: Processing new papers...")
+        logger.info("Phase 2: Processing new papers...")
         new_papers = []
         existing_papers = []
 
         for paper in papers_found:
             # Skip papers without abstracts
             if not paper.abstract or not paper.abstract.strip():
-                print(f"    Skipping paper '{paper.title[:50]}...' (no abstract)")
+                logger.info("  Skipping paper '%s...' (no abstract)", paper.title[:50])
                 continue
 
             existing = self.kb.get_paper(paper.id)
@@ -100,41 +101,42 @@ class VerificationPipeline:
             else:
                 new_papers.append(paper)
 
-        print("    Papers to process:")
-        print(f"      New papers: {len(new_papers)}")
-        print(f"      Already processed: {len(existing_papers)}")
+        logger.info("  New papers: %d, Already processed: %d", len(new_papers), len(existing_papers))
 
         # Extract propositions from new papers
         if new_papers:
-            print(f"\n    Extracting from {len(new_papers)} new papers...")
+            logger.info("Extracting from %d new papers...", len(new_papers))
             processed_papers = self.extractor.extract_from_papers(
                 new_papers, show_steps=True, use_full_text=use_full_text
             )
 
             # Score papers
-            print("\n    Scoring paper credibility...")
+            logger.info("Scoring paper credibility...")
             for paper in processed_papers:
                 self.paper_scorer.score_paper(paper)
 
             # Add to knowledge base
-            print("\n    Adding new papers to knowledge base...")
+            logger.info("Adding new papers to knowledge base...")
             self.kb.add_papers(processed_papers, verbose=False)
 
             total_quality_props = sum(len(p.get_quality_propositions()) for p in processed_papers)
             total_props = sum(len(p.propositions) for p in processed_papers)
-            print(
-                f"   Added {len(processed_papers)} papers with {total_quality_props} quality propositions out of {total_props} total propositions"
+            logger.info(
+                "Added %d papers with %d quality propositions out of %d total",
+                len(processed_papers),
+                total_quality_props,
+                total_props,
             )
 
             # Save KB incrementally to avoid losing data if pipeline crashes
-            print("\n    Saving knowledge base (incremental save)...")
+            logger.info("Saving knowledge base (incremental save)...")
             self.kb.save()
-            print(f"   Knowledge base saved to {Config.DB_NAME}")
+            logger.info("Knowledge base saved to %s", Config.DB_NAME)
         else:
-            print("\n   No new papers to process")
+            logger.info("No new papers to process")
 
         # Phase 3: Verify claim using all available evidence in KB
-        print("\n  Phase 3: Verifying claim with all available evidence...")
+        logger.info("Phase 3: Verifying claim with all available evidence...")
         return self._verify_with_kb_evidence(
             claim,
             search_queries,
@@ -172,15 +174,12 @@ class VerificationPipeline:
         Returns:
             VerificationResult with verdict, confidence, reasoning, and evidence
         """
-        print("\n CLAIM VERIFICATION FROM KNOWLEDGE BASE")
-        print("=" * 60)
-        print(f"Claim: {claim}\n")
+        logger.info("Claim verification from knowledge base: %s", claim)
 
         # Check if KB has data
         stats = self.kb.get_statistics()
         if stats["papers"] == 0:
-            print("  Knowledge base is empty!")
-            print("   Use verify_claim_with_search() to search for papers first.")
+            logger.info("Knowledge base is empty")
             return VerificationResult(
                 claim=claim,
                 verdict="INSUFFICIENT_EVIDENCE",
@@ -189,21 +188,19 @@ class VerificationPipeline:
                 evidence=[],
             )
 
-        print(" Knowledge Base Stats:")
-        print(f"   Papers: {stats['papers']}")
-        print(f"   Quality propositions: {stats['propositions_quality']}")
+        logger.info("KB stats - Papers: %d, Quality propositions: %d", stats["papers"], stats["propositions_quality"])
         if use_abstract_only:
-            print("   Filter: Abstract propositions only")
+            logger.info("Filter: Abstract propositions only")
 
         # Generate search queries
-        print("\n Generating search queries...")
+        logger.info("Generating search queries...")
         search_queries = self.literature_search.generate_search_queries(claim)
-        print(f"   • Original: {search_queries['original']}")
-        print(f"   • Opposite: {search_queries.get('opposite', 'N/A')}")
-        print(f"   • Neutral: {search_queries.get('neutral', 'N/A')}")
+        logger.info("  Original: %s", search_queries["original"])
+        logger.info("  Opposite: %s", search_queries.get("opposite", "N/A"))
+        logger.info("  Neutral: %s", search_queries.get("neutral", "N/A"))
 
         # Verify with KB evidence
-        print("\n  Verifying claim with knowledge base evidence...")
+        logger.info("Verifying claim with knowledge base evidence...")
         return self._verify_with_kb_evidence(
             claim,
             search_queries,
@@ -239,7 +236,7 @@ class VerificationPipeline:
         Returns:
             VerificationResult
         """
-        print("   • Retrieving relevant propositions...")
+        logger.info("  Retrieving relevant propositions...")
 
         # Query knowledge base with different query types
         all_retrieved = []
@@ -261,9 +258,9 @@ class VerificationPipeline:
                     seen_contents.add(prop.text)
                     all_retrieved.append(prop)
 
-            print(f"   • Retrieved {len(retrieved)} propositions from {query_type} query")
+            logger.info("  Retrieved %d propositions from %s query", len(retrieved), query_type)
 
-        print(f"   • Total unique propositions: {len(all_retrieved)}")
+        logger.info("  Total unique propositions: %d", len(all_retrieved))
 
         # # Alternative approach: distribute max_propositions across ALL queries
         # num_queries = len(search_queries)
@@ -294,11 +291,11 @@ class VerificationPipeline:
 
         # Diversify propositions (limit per paper for source diversity)
         retrieved_props = self._diversify_propositions(all_retrieved, max_per_paper=max_props_per_paper)
-        print(f"   • Diversified to {len(retrieved_props)} propositions (max {max_props_per_paper} per paper)")
+        logger.info("  Diversified to %d propositions (max %d per paper)", len(retrieved_props), max_props_per_paper)
 
         # Re-rank by credibility
         retrieved_props = self._rerank_by_credibility(retrieved_props)
-        print("   • Re-ranked by credibility")
+        logger.info("  Re-ranked by credibility")
 
         # Verify using the claim verifier (it looks up credibility automatically)
         verification = self.claim_verifier.verify_claim(claim, retrieved_props)

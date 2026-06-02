@@ -12,6 +12,7 @@ import argparse
 import contextlib
 import io
 import json
+import logging
 import sys
 import time
 from datetime import datetime
@@ -21,6 +22,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
+from scverifier.utils.logging_config import configure_logging
 from scverifier.config.settings import Config
 from scverifier.core.agents.autonomous_agent import AutonomousClaimAgent
 from scverifier.core.benchmarking.base import (
@@ -34,6 +36,8 @@ from scverifier.core.benchmarking.msvec_benchmark import MSVEC
 from scverifier.core.benchmarking.scifact_benchmark import SciFact
 from scverifier.core.knowledge.knowledge_base import KnowledgeBase
 from scverifier.pipelines.verification_pipeline import VerificationPipeline
+
+logger = logging.getLogger(__name__)
 
 
 def detect_claim_status(run_dir: Path) -> tuple[set, set]:
@@ -192,7 +196,7 @@ class BenchmarkRunner:
                     is_rate_limit = "429" in error_str or "rate" in error_str.lower() or "quota" in error_str.lower()
 
                     if is_rate_limit and attempt < max_retries:
-                        print(f"Rate limit error (attempt {attempt + 1}/{max_retries + 1}): {e}")
+                        logger.warning("Rate limit error (attempt %d/%d): %s", attempt + 1, max_retries + 1, e)
                         print(f"Waiting {retry_delay} seconds before retry...")
                         log_buffer.write(f"\nRate limit error (attempt {attempt + 1}): {e}\n")
                         log_buffer.write(f"Waiting {retry_delay} seconds before retry...\n")
@@ -203,7 +207,7 @@ class BenchmarkRunner:
                         failed += 1
                         error_occurred = True
                         error_message = str(e)
-                        print(f"ERROR: {e}")
+                        logger.error("ERROR: %s", e)
                         log_buffer.write(f"\nERROR: {e}\n")
                         item.result = None  # No result due to error
                         break
@@ -300,7 +304,7 @@ class BenchmarkRunner:
             return list(merged.values())
 
         except (json.JSONDecodeError, KeyError) as e:
-            print(f"Warning: Could not merge with original results: {e}")
+            logger.warning("Could not merge with original results: %s", e)
             return new_results
 
     def _save_claim_logs(self, item, use_agent: bool, log_content: str):
@@ -522,6 +526,7 @@ class BenchmarkRunner:
 
 def main():
     parser = argparse.ArgumentParser(description="Run benchmark evaluation")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable debug-level logging")
 
     parser.add_argument("dataset", choices=["scifact", "coverbench", "healthver", "msvec"])
     parser.add_argument(
@@ -548,6 +553,7 @@ def main():
     )
 
     args = parser.parse_args()
+    configure_logging(verbose=args.verbose)
 
     method_map = {
         "agent": VerificationMethod.AGENT,

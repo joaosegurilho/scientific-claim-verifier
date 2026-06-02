@@ -1,5 +1,6 @@
 """Paper credibility scoring system with simple 1-5 rating."""
 
+import logging
 from datetime import datetime
 from typing import List, Optional
 
@@ -7,6 +8,8 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from scverifier.config.settings import Config
 from scverifier.data.models import CredibilityScores, Paper, PaperMetadata
+
+logger = logging.getLogger(__name__)
 
 
 class PaperScorer:
@@ -171,9 +174,16 @@ Extract the metadata:"""
 
         # Simplified logging: just 2 lines per paper with tab indentation
         if verbose:
-            print(f"\t  Study: {study_type} | Citations: {paper.citations or 0}")
-            print(
-                f"\t  Score: {rating}/5 (base: {study_score}, cit: +{citation_bonus}, access: +{open_access_bonus}, full: +{fulltext_content_bonus}, method: +{methodology_bonus}, recency: -{recency_penalty})"
+            logger.info("Study: %s | Citations: %s", study_type, paper.citations or 0)
+            logger.info(
+                "Score: %d/5 (base: %d, cit: +%s, access: +%s, full: +%s, method: +%s, recency: -%s)",
+                rating,
+                study_score,
+                citation_bonus,
+                open_access_bonus,
+                fulltext_content_bonus,
+                methodology_bonus,
+                recency_penalty,
             )
 
         # Create CredibilityScores object with all metadata
@@ -238,7 +248,7 @@ Extract the metadata:"""
         # Truncate title if too long (max 500 chars)
         if len(title) > 500:
             title = title[:500] + "..."
-            print(f"    Warning: Paper '{paper.id}' title truncated (was {len(paper_title)} chars)")
+            logger.warning("Paper '%s' title truncated (was %d chars)", paper.id, len(paper_title))
 
         # Get abstract, or fallback to first 2000 characters of full_text
         paper_abstract = paper.abstract if paper.abstract is not None else ""
@@ -250,7 +260,7 @@ Extract the metadata:"""
             full_text_combined = self._combine_full_text_sections(paper.full_text, max_chars=3000)
             if full_text_combined:
                 abstract = full_text_combined
-                print(f"    Info: Paper '{paper.id}' has no abstract - using first {len(abstract)} chars of full text")
+                logger.info("Paper '%s' has no abstract - using first %d chars of full text", paper.id, len(abstract))
 
         if not abstract:
             abstract = "No abstract available"
@@ -260,30 +270,33 @@ Extract the metadata:"""
         if len(abstract) > 3000:
             original_len = len(abstract)
             abstract = abstract[:3000] + "..."
-            print(f"      Warning: Paper '{paper.id}' abstract truncated ({original_len} → 3000 chars)")
+            logger.warning("Paper '%s' abstract truncated (%d -> 3000 chars)", paper.id, original_len)
         # Debug logging for missing data
         if title == "No title available" or abstract == "No abstract available":
-            print(
-                f"      Warning: Paper '{paper.id}' missing data - Title: '{paper_title[:50] if paper_title else 'None'}', Abstract available: {bool(paper.abstract)}, Full text sections: {len(paper.full_text) if paper.full_text else 0}"
+            logger.warning(
+                "Paper '%s' missing data - Title: '%s', Abstract available: %s, Full text sections: %d",
+                paper.id,
+                paper_title[:50] if paper_title else "None",
+                bool(paper.abstract),
+                len(paper.full_text) if paper.full_text else 0,
             )
 
         def extract():
             import time
 
             start_time = time.time()
-            print(f"    Extracting metadata for paper '{paper.id}'...", flush=True)
+            logger.info("Extracting metadata for paper '%s'...", paper.id)
             try:
-                print(f"      Calling LLM (timeout: {self.timeout}s)...", flush=True)
+                logger.info("Calling LLM (timeout: %ds)...", self.timeout)
                 result = self.metadata_extractor.invoke({"title": title, "abstract": abstract})
                 elapsed = time.time() - start_time
-                print(f"      Done in {elapsed:.1f}s")
+                logger.info("Done in %.1fs", elapsed)
                 return result
             except Exception as e:
                 elapsed = time.time() - start_time
-                # Add more context to the error
-                print(f"      LLM extraction failed after {elapsed:.1f}s")
-                print(f"      Error: {type(e).__name__}: {str(e)[:200]}")
-                print(f"      Title length: {len(title)}, Abstract length: {len(abstract)}")
+                logger.error("LLM extraction failed after %.1fs", elapsed)
+                logger.error("Error: %s: %s", type(e).__name__, str(e)[:200])
+                logger.error("Title length: %d, Abstract length: %d", len(title), len(abstract))
                 raise
 
         # Use retry wrapper for robustness, with fallback to alternate model on failure
@@ -291,7 +304,7 @@ Extract the metadata:"""
             return Config.retry_llm_call(extract)
         except Exception:
             # Fallback to alternate model
-            print(f"         ⚠ Primary model failed, falling back to {Config.LLM_FALLBACK_MODEL}...")
+            logger.warning("Primary model failed, falling back to %s...", Config.LLM_FALLBACK_MODEL)
             self.llm = Config.with_llm(
                 fallback=True,
                 # model=Config.LLM_FALLBACK_MODEL,

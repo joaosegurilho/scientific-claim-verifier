@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 from typing import List, Optional
@@ -9,6 +10,8 @@ from scverifier.data.simple_pdf_extractors import (
     extract_with_pypdf,
     extract_with_marker,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class LocalPaperProcessor:
@@ -133,9 +136,9 @@ def _save_raw_markdown(paper_id: str, markdown_content: str) -> None:
         markdown_path = os.path.join(markdown_dir, f"{paper_id}.md")
         with open(markdown_path, "w", encoding="utf-8") as f:
             f.write(markdown_content)
-        print(f"Saved raw markdown to: {markdown_path}")
+        logger.info("Saved raw markdown to: %s", markdown_path)
     except Exception as e:
-        print(f"Warning: Could not save raw markdown for {paper_id}: {e}")
+        logger.warning("Could not save raw markdown for %s: %s", paper_id, e)
 
 
 def _extract_metadata_from_text(

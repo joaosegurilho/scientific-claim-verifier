@@ -1,11 +1,14 @@
 """PubMed API interface for biomedical literature."""
 
 import json
+import logging
 import requests
 import time
 from typing import List, Dict, Any
 from xml.etree import ElementTree as ET
 from scverifier.api.api import API
+
+logger = logging.getLogger(__name__)
 
 
 class PubMedAPI(API):
@@ -44,7 +47,7 @@ class PubMedAPI(API):
                     content.startswith("<!DOCTYPE html>") or content.startswith("<html>")
                 ):
                     if attempt < max_retries - 1:
-                        print(f"PubMed appears to be in maintenance. Retrying in {retry_delay} seconds...")
+                        logger.warning("PubMed appears to be in maintenance. Retrying in %d seconds...", retry_delay)
                         time.sleep(retry_delay)
                         continue
                     raise requests.RequestException("PubMed is currently under maintenance")
@@ -52,7 +55,7 @@ class PubMedAPI(API):
                 # Verify response format matches requested format
                 if "json" in params.get("retmode", "") and "json" not in content_type:
                     if attempt < max_retries - 1:
-                        print(f"Expected JSON but got {content_type}. Retrying in {retry_delay} seconds...")
+                        logger.warning("Expected JSON but got %s. Retrying in %d seconds...", content_type, retry_delay)
                         time.sleep(retry_delay)
                         continue
                     raise requests.RequestException(f"Expected JSON response but got {content_type}")
@@ -61,7 +64,7 @@ class PubMedAPI(API):
 
             except requests.RequestException as e:
                 if attempt < max_retries - 1:
-                    print(f"Request failed: {str(e)}. Retrying in {retry_delay} seconds...")
+                    logger.warning("Request failed: %s. Retrying in %d seconds...", str(e), retry_delay)
                     time.sleep(retry_delay)
                 else:
                     raise
@@ -93,23 +96,25 @@ class PubMedAPI(API):
 
             # Try to detect HTML error pages
             if search_result.strip().startswith("<!DOCTYPE html>") or search_result.strip().startswith("<html>"):
-                print("PubMed returned an HTML page instead of JSON. The service might be experiencing issues.")
+                logger.warning(
+                    "PubMed returned an HTML page instead of JSON. The service might be experiencing issues."
+                )
                 return []
 
             search_data = json.loads(search_result)
             pmids = search_data.get("esearchresult", {}).get("idlist", [])
 
             if not pmids:
-                print(f"[PubMed] No results found for query: {query}")
+                logger.info("No results found for query: %s", query)
             else:
-                print(f"[PubMed] Found {len(pmids)} results for query: {query}")
+                logger.info("Found %d results for query: %s", len(pmids), query)
 
         except requests.RequestException as e:
-            print(f"[PubMed] Request failed: {str(e)}")
+            logger.warning("Request failed: %s", str(e))
             return []
         except json.JSONDecodeError as e:
-            print(f"[PubMed] Invalid JSON response: {str(e)}")
-            print(f"[PubMed] Response content: {search_result[:200]}...")  # Print first 200 chars
+            logger.warning("Invalid JSON response: %s", str(e))
+            logger.debug("Response content: %s...", search_result[:200])
             return []
 
         if not pmids:
@@ -197,7 +202,7 @@ class PubMedAPI(API):
                 papers.append(paper)
 
             except Exception as e:
-                print(f"Error parsing article: {e}")
+                logger.warning("Error parsing article: %s", e)
                 continue
 
         return papers

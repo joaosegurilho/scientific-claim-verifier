@@ -1,10 +1,13 @@
 """OpenAlex API interface for accessing open research papers."""
 
+import logging
 import requests
 import time
 from typing import List, Dict, Any
 from scverifier.config.settings import Config
 from scverifier.api.api import API
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAlexAPI(API):
@@ -51,7 +54,7 @@ class OpenAlexAPI(API):
             return " ".join(word for _, word in all_positions)
 
         except Exception as e:
-            print(f"[OpenAlex] Error converting inverted index: {e}")
+            logger.warning("Error converting inverted index: %s", e)
             return ""
 
     def _make_request(self, params: Dict) -> Dict:
@@ -99,16 +102,16 @@ class OpenAlexAPI(API):
         try:
             data = self._make_request(params)
         except requests.exceptions.Timeout:
-            print("[OpenAlex] Request timeout")
+            logger.warning("Request timeout")
             return []
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 429:
-                print("[OpenAlex] Rate limit exceeded")
+                logger.warning("Rate limit exceeded")
             else:
-                print(f"[OpenAlex] HTTP error {e.response.status_code}: {e}")
+                logger.warning("HTTP error %d: %s", e.response.status_code, e)
             return []
         except Exception as e:
-            print(f"[OpenAlex] Request failed: {str(e)}")
+            logger.warning("Request failed: %s", str(e))
             return []
 
         papers = []
@@ -163,12 +166,12 @@ class OpenAlexAPI(API):
                     }
                 )
             except Exception as e:
-                print(f"[OpenAlex] Error parsing paper: {e}")
+                logger.warning("Error parsing paper: %s", e)
                 continue
 
         if not papers:
-            print(f"[OpenAlex] No results found for query: {query}")
+            logger.info("No results found for query: %s", query)
         else:
-            print(f"[OpenAlex] Found {len(papers)} results for query: {query}")
+            logger.info("Found %d results for query: %s", len(papers), query)
 
         return papers

@@ -4,11 +4,15 @@ These tools wrap existing functionality to make it accessible to LangGraph agent
 Each tool has a clear description to help the LLM understand when to use it.
 """
 
+import logging
 from langchain_core.tools import tool
+
 from scverifier.core.knowledge.knowledge_base import KnowledgeBase
 from scverifier.core.knowledge.literature_search import LiteratureSearch
 from scverifier.core.extraction.proposition_extractor import PropositionExtractor
 from scverifier.core.verification.paper_scorer import PaperScorer
+
+logger = logging.getLogger(__name__)
 
 # Global knowledge base reference (set by agent initialization)
 _kb: KnowledgeBase | None = None
@@ -401,23 +405,21 @@ def search_online_papers(query: str, max_papers: int = 10) -> str:
         return "Error: Knowledge base not initialized"
 
     try:
-        print(
-            f"\n[SEARCH ONLINE] Starting online search for: {query[:80]}{'...' if len(query) > 80 else ''}", flush=True
-        )
-        print(f"[SEARCH ONLINE] Max papers: {max_papers}", flush=True)
+        logger.info("[SEARCH ONLINE] Starting online search for: %s%s", query[:80], "..." if len(query) > 80 else "")
+        logger.info("[SEARCH ONLINE] Max papers: %d", max_papers)
 
         # Generate search queries
         search_queries = _lit_search.generate_search_queries(query)
-        print(f"[SEARCH ONLINE] Generated {len(search_queries)} search queries", flush=True)
+        logger.info("[SEARCH ONLINE] Generated %d search queries", len(search_queries))
 
         # Search for papers
         papers = _lit_search.search_papers(query, search_queries=search_queries, max_papers=max_papers, verbose=False)
 
         if not papers:
-            print("[SEARCH ONLINE] No papers found\n", flush=True)
+            logger.info("[SEARCH ONLINE] No papers found")
             return f"No papers found online for query: '{query}'"
 
-        print(f"[SEARCH ONLINE] Found {len(papers)} papers to process", flush=True)
+        logger.info("[SEARCH ONLINE] Found %d papers to process", len(papers))
 
         # Initialize extractor and scorer
         extractor = PropositionExtractor()
@@ -430,14 +432,14 @@ def search_online_papers(query: str, max_papers: int = 10) -> str:
         skipped_count = 0
 
         for i, paper in enumerate(papers, 1):
-            print(f"[PAPER {i}/{len(papers)}] {paper.title[:80]}{'...' if len(paper.title) > 80 else ''}", flush=True)
-            print(f"  ID: {paper.id}, Year: {paper.year or 'N/A'}, Citations: {paper.citations or 0}", flush=True)
+            logger.info("[PAPER %d/%d] %s%s", i, len(papers), paper.title[:80], "..." if len(paper.title) > 80 else "")
+            logger.info("  ID: %s, Year: %s, Citations: %s", paper.id, paper.year or "N/A", paper.citations or 0)
 
             # Check if paper already exists in KB
             existing = _kb.get_paper(paper.id)
             if existing and existing.propositions:
                 skipped_count += 1
-                print(f"  Status: Already in KB ({len(existing.propositions)} propositions) - Skipped", flush=True)
+                logger.info("  Status: Already in KB (%d propositions) - Skipped", len(existing.propositions))
                 result += f"{i}. {paper.title}\n"
                 result += f"   Paper ID: {paper.id}\n"
                 result += f"   Status: Already in KB ({len(existing.propositions)} propositions)\n\n"
@@ -452,11 +454,11 @@ def search_online_papers(query: str, max_papers: int = 10) -> str:
             result += f"\n   Year: {paper.year or 'Unknown'}\n"
             result += f"   Citations: {paper.citations or 0}\n"
 
-            print("  Extracting propositions from abstract...", flush=True)
+            logger.info("Extracting propositions from abstract...")
             # Extract propositions (from abstract only for online papers)
             extractor.extract_from_paper(paper, show_steps=False, use_full_text=False)
 
-            print("  Scoring paper credibility...", flush=True)
+            logger.info("Scoring paper credibility...")
             # Score paper credibility
             scorer.score_paper(paper)
 
@@ -469,9 +471,12 @@ def search_online_papers(query: str, max_papers: int = 10) -> str:
             quality_props = len(paper.get_quality_propositions())
             total_props = len(paper.propositions)
 
-            print(
-                f"  Status: Saved ({quality_props} quality / {total_props} total props, credibility: {paper.credibility.rating:.1f}/5 - {paper.credibility.study_type if paper.credibility else 'N/A'})",
-                flush=True,
+            logger.info(
+                "Status: Saved (%d quality / %d total props, credibility: %.1f/5 - %s)",
+                quality_props,
+                total_props,
+                paper.credibility.rating if paper.credibility else 0,
+                paper.credibility.study_type if paper.credibility else "N/A",
             )
 
             result += f"   Status: Extracted and saved ({quality_props} quality / {total_props} total propositions)\n"
@@ -481,9 +486,7 @@ def search_online_papers(query: str, max_papers: int = 10) -> str:
 
             result += "\n"
 
-        print(
-            f"\n[SEARCH ONLINE] Complete: {processed_count} new papers processed, {skipped_count} skipped\n", flush=True
-        )
+        logger.info("[SEARCH ONLINE] Complete: %d new papers processed, %d skipped", processed_count, skipped_count)
 
         result += f"\nSummary: Processed {processed_count} new papers, skipped {skipped_count} already in KB.\n"
         result += (

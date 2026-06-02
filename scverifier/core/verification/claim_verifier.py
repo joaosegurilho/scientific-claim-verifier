@@ -1,5 +1,6 @@
 """Scientific claim verification using retrieved evidence with credibility scoring."""
 
+import logging
 from typing import List, Optional
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -10,6 +11,8 @@ from scverifier.core.verification.confidence_interpreter import (
     CONFIDENCE_INTERPRETATIONS,
 )
 from scverifier.data.models import ClaimVerification, Proposition, VerificationResult
+
+logger = logging.getLogger(__name__)
 
 
 class ClaimVerifier:

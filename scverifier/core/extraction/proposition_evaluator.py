@@ -1,5 +1,6 @@
 """Enhanced proposition quality evaluation using LLMs."""
 
+import logging
 from typing import List
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -11,6 +12,8 @@ from scverifier.data.models import (
     Proposition,
     PropositionEvaluation,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PropositionEvaluator:

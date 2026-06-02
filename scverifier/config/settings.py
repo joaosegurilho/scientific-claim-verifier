@@ -1,5 +1,6 @@
 """Configuration settings for the Proposition-based Retrieval Pipeline."""
 
+import logging
 import os
 from time import sleep
 
@@ -10,6 +11,8 @@ from langchain_openai import AzureChatOpenAI
 
 # Load environment variables
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 class Config:
@@ -125,7 +128,8 @@ class Config:
             except Exception as e:
                 if attempt == max_retries - 1:
                     raise e
-                print(f"        Retry {attempt + 1}/{max_retries} after error: {str(e)[:50]}")
+                logger.warning("Retry %d/%d after error: %s", attempt + 1, max_retries, str(e)[:50])
+                logger.warning(f"\t\tRetry {attempt + 1}/{max_retries} after error: {str(e)}")
                 sleep(2)
 
     @classmethod
@@ -163,8 +167,8 @@ class Config:
                 timeout=timeout,
             )
         # else:
+        #     # This is not suitable way to do it
         #     # Works for DeepSeek, Mistral, etc.
-        #     # model = init_chat_model("azure_ai:DeepSeek-R1-0528")
         #     return init_chat_model(
         #         model,
         #         api_key=cls.AZURE_API_KEY,

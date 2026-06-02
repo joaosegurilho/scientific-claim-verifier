@@ -10,11 +10,13 @@ This provides a web interface to:
 """
 
 import json
+import logging
 import os
 import tempfile
 import traceback
 import uvicorn
 from pathlib import Path
+
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, Request, Form, UploadFile, File, HTTPException
@@ -22,6 +24,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 
+from scverifier.utils.logging_config import configure_logging
 from scverifier.api.api_pmc import PMCAPI
 from scverifier.core.agents.autonomous_agent import AutonomousClaimAgent
 from scverifier.core.extraction.proposition_evaluator import PropositionEvaluator
@@ -37,6 +40,8 @@ from scverifier.data.file_loader import FileLoader
 from scverifier.data.local_paper_processor import LocalPaperProcessor
 from scverifier.pipelines.verification_pipeline import VerificationPipeline
 
+logger = logging.getLogger(__name__)
+
 # Initialize FastAPI app
 app = FastAPI(title="Scientific Claim Verification System")
 
@@ -51,11 +56,11 @@ lit_search = LiteratureSearch()
 
 try:
     kb.load()
-    print(f" Knowledge base loaded with {len(kb.papers)} papers")
+    logger.info("Knowledge base loaded with %d papers", len(kb.papers))
 except FileNotFoundError:
-    print(" No knowledge base found. Please run extraction pipeline first.")
+    logger.warning("No knowledge base found. Please run extraction pipeline first.")
 except Exception as e:
-    print(f" Error loading knowledge base: {e}")
+    logger.error("Error loading knowledge base: %s", e)
 
 
 # ======================== JINJA2 CUSTOM FILTERS ========================
@@ -688,20 +693,19 @@ async def verify_agent_stream(claim: str, allow_online_search: bool = False, age
         allow_online_search: Whether to allow searching online databases
         agent_quality_only: Whether to search only quality propositions
     """
-    print("\n[API] /api/verify-agent-stream called", flush=True)
-    print(f"[API] Claim: {claim[:80]}...", flush=True)
-    print(f"[API] Online: {allow_online_search}, Quality: {agent_quality_only}", flush=True)
+    logger.info("Agent stream called for claim: %s...", claim[:80])
+    logger.info("Online: %s, Quality: %s", allow_online_search, agent_quality_only)
 
     try:
         # Initialize agent
-        print("[API] Creating agent...", flush=True)
+        logger.info("Creating agent...")
         agent = AutonomousClaimAgent(
             kb=kb, lit_search=lit_search, allow_online_search=allow_online_search, quality_only=agent_quality_only
         )
-        print("[API] Agent created successfully", flush=True)
+        logger.info("Agent created successfully")
 
         # Use the simple streaming function
-        print("[API] Starting stream...", flush=True)
+        logger.info("Starting stream...")
         return StreamingResponse(
             stream_agent_verification(agent, claim, kb),
             media_type="text/event-stream",
@@ -711,8 +715,8 @@ async def verify_agent_stream(claim: str, allow_online_search: bool = False, age
     except Exception as e:
         error_msg = str(e)
         error_trace = traceback.format_exc()
-        print(f"[API ERROR] Failed to create agent or stream: {error_msg}", flush=True)
-        print(f"[API ERROR] Traceback:\n{error_trace}", flush=True)
+        logger.error("Failed to create agent or stream: %s", error_msg)
+        logger.error("Traceback:\n%s", error_trace)
 
         async def error_generator():
             error_data = {
@@ -910,7 +914,7 @@ async def generate_visualization(
 
     except Exception as e:
         error_details = traceback.format_exc()
-        print(error_details)
+        logger.error(error_details)
 
         return templates.TemplateResponse(
             "visualize.html",
@@ -1023,13 +1027,10 @@ async def api_regenerate_fulltext(paper_id: str):
         paper.chunks = []
         paper.propositions = []
 
-        print("Test")
-
         # Delete paper
         kb.delete_paper(paper_id, verbose=True)
         kb.save()
 
-        print("Test")
         # Re-extract from full text without evaluation
         extractor.extract_from_paper(paper, show_steps=True, use_full_text=True)
 
@@ -1076,24 +1077,15 @@ async def api_regenerate_abstract(paper_id: str):
         extractor.extract_from_paper(paper, show_steps=True, use_full_text=False)
 
         # Add diagnostic logging to understand proposition count
-        print(f"DEBUG: Abstract length: {len(paper.abstract)} chars")
-        print(f"DEBUG: Total chunks generated: {len(paper.chunks)}")
-        print(f"DEBUG: Total propositions generated: {len(paper.propositions)}")
-
-        # Check quality filtering
         quality_props = paper.get_quality_propositions()
-        print(f"DEBUG: Quality propositions: {len(quality_props)}")
-
-        # Check evaluation status
-        if paper.propositions:
-            has_eval = any(prop.evaluation is not None for prop in paper.propositions)
-            print(f"DEBUG: Propositions have evaluation: {has_eval}")
-
-            # Print first few propositions
-            for i, prop in enumerate(paper.propositions[:5]):
-                eval_str = str(prop.evaluation.to_dict()) if prop.evaluation else "None"
-                print(f"DEBUG Prop {i}: {prop.text[:80]}...")
-                print(f"       Evaluation: {eval_str}")
+        logger.info(
+            "Paper %s - Abstract: %d chars, Chunks: %d, Props: %d, Quality: %d",
+            paper_id,
+            len(paper.abstract),
+            len(paper.chunks),
+            len(paper.propositions),
+            len(quality_props),
+        )
 
         # Save knowledge base with reextracted paper
         kb.add_paper(paper, verbose=False)
@@ -1126,20 +1118,19 @@ async def api_reevaluate_propositions(paper_id: str):
         evaluator = PropositionEvaluator()
 
         # Re-evaluate all propositions
-        print(f"\nRe-evaluating {len(paper.propositions)} propositions...")
+        logger.info("Re-evaluating %d propositions...", len(paper.propositions))
         for prop in paper.propositions:
             chunk = kb.get_chunk(prop.chunk_id)
             if not chunk:
-                print(f"  Warning: Chunk '{prop.chunk_id}' not found for proposition '{prop.prop_id}'")
-                print(f"  Skipping evaluation for proposition: {prop.text[:50]}...")
+                logger.warning("Chunk '%s' not found for proposition '%s'", prop.chunk_id, prop.prop_id)
+                logger.info("Skipping evaluation for proposition: %s...", prop.text[:50])
                 continue
             evaluation = evaluator.evaluate_proposition(prop.text, chunk.text)
             prop.evaluation = evaluation
-            print(f"  Evaluated: {prop.text[:50]}... (Avg: {evaluation.average_score():.1f}/10)")
+            logger.debug("Evaluated: %s... (Avg: %.1f/10)", prop.text[:50], evaluation.average_score())
 
         # Update vectorstore metadata with new evaluation scores
-        # This is necessary because propositions are loaded from the vectorstore on startup
-        print("\nUpdating vectorstore metadata with evaluation scores...")
+        logger.info("Updating vectorstore metadata with evaluation scores...")
         updated_count = 0
         if kb.retrieval_system.proposition_vectorstore:
             for prop in paper.propositions:
@@ -1152,7 +1143,7 @@ async def api_reevaluate_propositions(paper_id: str):
                             doc.metadata["passed_quality"] = prop.evaluation.passes_quality_check()
                             updated_count += 1
                         break
-        print(f"  Updated {updated_count}/{len(paper.propositions)} propositions in vectorstore")
+        logger.info("Updated %d/%d propositions in vectorstore", updated_count, len(paper.propositions))
 
         # Save knowledge base (paper is already updated in kb.papers since we got it by reference)
         # NOTE: Do NOT call kb.add_paper() here - that would duplicate propositions in vectorstore!
@@ -1243,8 +1234,8 @@ async def api_fetch_pmc_fulltext(paper_id: str):
         # Initialize PMC API
         pmc_api = PMCAPI()
 
-        print(f"\nFetching full text from PMC for paper '{paper.title}'...")
-        print(f"PMC ID: {paper.pmc_id}")
+        logger.info("Fetching full text from PMC for paper '%s'...", paper.title)
+        logger.info("PMC ID: %s", paper.pmc_id)
 
         # Fetch full text from PMC
         result = pmc_api.get_full_text(paper.pmc_id)
@@ -1263,7 +1254,7 @@ async def api_fetch_pmc_fulltext(paper_id: str):
         if result.get("pdf_url"):
             paper.pdf_url = result.get("pdf_url", "")
 
-        print(f"Successfully fetched {len(paper.full_text)} sections from PMC")
+        logger.info("Successfully fetched %d sections from PMC", len(paper.full_text))
 
         # Save to knowledge base
         kb.add_paper(paper, verbose=False)
@@ -1349,7 +1340,7 @@ async def api_upload_paper(file: UploadFile = File(...), extraction_method: str 
             scorer = PaperScorer()
             scorer.score_paper(paper)
             if paper.credibility:
-                print(f"   Scored paper: {paper.credibility.rating:.1f}/5 ({paper.credibility.study_type})")
+                logger.info("Scored paper: %.1f/5 (%s)", paper.credibility.rating, paper.credibility.study_type)
 
             # Add to knowledge base
             kb.add_paper(paper, verbose=True)
@@ -1469,7 +1460,7 @@ async def api_upload_multiple_papers(files: List[UploadFile] = File(...), extrac
     try:
         kb.save()
     except Exception as e:
-        print(f"Error saving knowledge base: {e}")
+        logger.error("Error saving knowledge base: %s", e)
 
     success_count = sum(1 for r in results if r["success"])
 
@@ -1569,7 +1560,7 @@ async def api_upload_multiple_papers_no_extraction(
     try:
         kb.save()
     except Exception as e:
-        print(f"Error saving knowledge base: {e}")
+        logger.error("Error saving knowledge base: %s", e)
 
     success_count = sum(1 for r in results if r["success"])
 
@@ -1577,6 +1568,15 @@ async def api_upload_multiple_papers_no_extraction(
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Scientific Claim Verification Web Application")
+    parser.add_argument("--port", type=int, default=8000, help="Port to serve on (default: 8000)")
+    parser.add_argument("--host", default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable debug-level logging")
+    args = parser.parse_args()
+    configure_logging(verbose=args.verbose, log_file="logs/webapp.log")
+
     print("\n" + "=" * 70)
     print(" Starting Scientific Claim Verification Web Application")
     print("=" * 70)
@@ -1585,4 +1585,4 @@ if __name__ == "__main__":
     print(" Documentation: http://localhost:8000/docs")
     print("\n" + "=" * 70 + "\n")
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=args.host, port=args.port)

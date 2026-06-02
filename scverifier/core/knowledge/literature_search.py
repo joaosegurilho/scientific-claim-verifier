@@ -1,5 +1,6 @@
 """Literature search functionality for finding papers from external APIs."""
 
+import logging
 from time import sleep
 from typing import Any, Dict, List
 
@@ -11,6 +12,8 @@ from scverifier.api.api_pubmed import PubMedAPI
 from scverifier.api.api_semantic_scholar import SemanticScholarAPI
 from scverifier.config.settings import Config
 from scverifier.data.models import Paper
+
+logger = logging.getLogger(__name__)
 
 
 class LiteratureSearch:
@@ -161,12 +164,12 @@ Now generate titles for the queries above:"""
         # Generate queries if not provided
         if search_queries is None:
             if verbose:
-                print("   • Generating search queries...")
+                logger.info("Generating search queries...")
             search_queries = self.generate_search_queries(query)
             if verbose:
-                print(f"     Original: {search_queries['original']}")
-                print(f"     Opposite: {search_queries.get('opposite', 'N/A')}")
-                print(f"     Neutral: {search_queries.get('neutral', 'N/A')}")
+                logger.info("  Original: %s", search_queries["original"])
+                logger.info("  Opposite: %s", search_queries.get("opposite", "N/A"))
+                logger.info("  Neutral: %s", search_queries.get("neutral", "N/A"))
 
         all_papers: list[Paper] = []
         seen_ids = set()
@@ -180,7 +183,7 @@ Now generate titles for the queries above:"""
         ]
 
         if verbose:
-            print(f"   • Target: {max_papers} unique papers")
+            logger.info("Target: %d unique papers", max_papers)
 
         max_rounds = 5  # Safety to prevent infinite loops
         max_api_calls = 10 * max_papers  # Hard limit on total API calls
@@ -193,14 +196,14 @@ Now generate titles for the queries above:"""
             temp = 0.0 if round_index == 1 else 0.7
 
             if verbose:
-                print(f"\n    Search round {round_index} / {max_rounds}")
+                logger.info("Search round %d / %d", round_index, max_rounds)
 
             paper_titles = self.generate_paper_titles(search_queries, temp=temp)
 
             if verbose:
-                print(f"   • Generated {len(paper_titles)} paper title queries")
+                logger.info("Generated %d paper title queries", len(paper_titles))
                 for i, title_query in enumerate(paper_titles):
-                    print(f"     {i}. {title_query}")
+                    logger.debug("  %d. %s", i, title_query)
 
             new_found = 0
             stop_search = False
@@ -253,7 +256,7 @@ Now generate titles for the queries above:"""
 
                                 if verbose:
                                     short_title = title[:77] + "..." if len(title) > 80 else title[:80]
-                                    print(f"     Added '{short_title}' from {api_name}")
+                                    logger.info("  Added '%s' from %s", short_title, api_name)
 
                                 if len(all_papers) >= max_papers:
                                     stop_search = True
@@ -261,7 +264,7 @@ Now generate titles for the queries above:"""
 
                     except Exception as e:
                         if verbose:
-                            print(f"       {api_name} failed: {e}")
+                            logger.warning("%s failed: %s", api_name, e)
 
                     if stop_search:
                         break  # stop API loop
@@ -276,17 +279,19 @@ Now generate titles for the queries above:"""
             else:
                 rounds_without_new = 0  # reset if progress made
                 if verbose and new_found > 3:
-                    print(f"     Added {new_found} papers in this round")
+                    logger.info("Added %d papers in this round", new_found)
 
             if stop_search:
                 break  # stop the while loop early if max reached
 
         if verbose:
-            print(f"\n    Found {len(all_papers)} unique papers total (API calls: {api_call_count}/{max_api_calls}).")
+            logger.info(
+                "Found %d unique papers total (API calls: %d/%d).", len(all_papers), api_call_count, max_api_calls
+            )
             if api_call_count >= max_api_calls:
-                print(f"     Search stopped: API call limit reached ({max_api_calls} calls).")
+                logger.info("Search stopped: API call limit reached (%d calls).", max_api_calls)
             elif rounds_without_new >= max_rounds:
-                print("     Search stopped early (no new papers found).")
+                logger.info("Search stopped early (no new papers found).")
 
         return all_papers[:max_papers]
 

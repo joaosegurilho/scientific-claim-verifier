@@ -8,6 +8,7 @@ to verify a scientific claim. It uses LangGraph's pattern to:
 4. Make a final verification decision
 """
 
+import logging
 import re
 from typing import Any, AsyncGenerator, Dict, Optional
 
@@ -23,6 +24,8 @@ from scverifier.core.verification.confidence_interpreter import (
     CONFIDENCE_INTERPRETATIONS,
 )
 from scverifier.data.models import Proposition, VerificationResult
+
+logger = logging.getLogger(__name__)
 
 
 class AutonomousClaimAgent:
@@ -193,20 +196,14 @@ Now verify the following claim:
                     message_type = type(last_message).__name__
 
                     if debug:
-                        print(
-                            f"[DEBUG] Stream event - message type: {message_type}",
-                            flush=True,
-                        )
+                        logger.debug("Stream event - message type: %s", message_type)
 
                     # Check for tool calls first
                     has_tool_calls = hasattr(last_message, "tool_calls") and last_message.tool_calls
                     has_content = hasattr(last_message, "content") and last_message.content
 
                     if debug:
-                        print(
-                            f"[DEBUG] has_tool_calls: {has_tool_calls}, has_content: {has_content}",
-                            flush=True,
-                        )
+                        logger.debug("has_tool_calls: %s, has_content: %s", has_tool_calls, has_content)
 
                     # Determine event type
                     if has_tool_calls:
@@ -238,10 +235,7 @@ Now verify the following claim:
                         content = last_message.content
 
                         if debug:
-                            print(
-                                f"[DEBUG] AIMessage content type: {type(content)}",
-                                flush=True,
-                            )
+                            logger.debug("AIMessage content type: %s", type(content))
 
                         # Handle both string and list-of-dicts content formats
                         if isinstance(content, str):
@@ -266,10 +260,7 @@ Now verify the following claim:
                                 final_message_received = True
 
                             if debug:
-                                print(
-                                    f"[DEBUG] Yielding agent message, preview: {text_content[:100]}...",
-                                    flush=True,
-                                )
+                                logger.debug("Yielding agent message, preview: %s...", text_content[:100])
                             yield {
                                 "type": "agent_message",
                                 "content": text_content,
@@ -277,9 +268,10 @@ Now verify the following claim:
                             }
                     else:
                         if debug:
-                            print(
-                                f"[DEBUG] Message not yielded - type: {message_type}, isinstance AIMessage: {isinstance(last_message, AIMessage)}",
-                                flush=True,
+                            logger.debug(
+                                "Message not yielded - type: %s, isinstance AIMessage: %s",
+                                message_type,
+                                isinstance(last_message, AIMessage),
                             )
 
             # Store tracked IDs for later retrieval
@@ -290,10 +282,7 @@ Now verify the following claim:
             # If no final message was received, try to force one
             if not final_message_received:
                 if debug:
-                    print(
-                        "[DEBUG] No final message received, attempting to force verdict...",
-                        flush=True,
-                    )
+                    logger.debug("No final message received, attempting to force verdict...")
 
                 force_decision_message = """Based on all the evidence you've gathered, provide your final verdict NOW in the required format:
 
@@ -336,10 +325,7 @@ EVIDENCE_IDS: [Comma-separated list of paper IDs you examined]"""
 
                                 if text_content and ("VERDICT:" in text_content or "REASONING:" in text_content):
                                     if debug:
-                                        print(
-                                            "[DEBUG] Forced verdict received",
-                                            flush=True,
-                                        )
+                                        logger.debug("Forced verdict received")
                                     yield {
                                         "type": "agent_message",
                                         "content": text_content,
@@ -349,7 +335,7 @@ EVIDENCE_IDS: [Comma-separated list of paper IDs you examined]"""
 
                 except Exception as e:
                     if debug:
-                        print(f"[DEBUG] Failed to force verdict: {e}", flush=True)
+                        logger.debug("Failed to force verdict: %s", e)
 
         except Exception as e:
             # Check if this is a recursion limit error
@@ -458,12 +444,12 @@ You MUST respond with a verdict. Do not ask for more information or more time.""
 
         try:
             # Run agent
-            print("  Starting agent verification...")
+            logger.info("Starting agent verification...")
             result = self.agent.invoke({"messages": messages}, config=config)
 
             # Extract final response
             final_response = result["messages"][-1].content
-            print("  Agent completed. Parsing response...")
+            logger.info("Agent completed. Parsing response...")
 
             # Extract IDs and token usage from tool messages in conversation history
             for msg in result["messages"]:
@@ -481,7 +467,7 @@ You MUST respond with a verdict. Do not ask for more information or more time.""
 
         except GraphRecursionError:
             # Agent hit recursion limit - force a final verdict
-            print(f"  Agent hit recursion limit ({self.recursion_limit} steps). Forcing verdict...")
+            logger.warning("Agent hit recursion limit (%d steps). Forcing verdict...", self.recursion_limit)
 
             force_decision_message = """You have reached the maximum number of reasoning steps. Based on all the evidence you've gathered so far, you MUST provide your final verdict NOW.
 
@@ -504,7 +490,7 @@ You MUST respond with a verdict. Do not ask for more information or more time.""
                 }
                 result = self.agent.invoke({"messages": messages}, config=force_config)
                 final_response = result["messages"][-1].content
-                print("  Forced verdict received.")
+                logger.info("Forced verdict received.")
 
                 # Extract IDs from forced conversation
                 for msg in result["messages"]:
@@ -516,7 +502,7 @@ You MUST respond with a verdict. Do not ask for more information or more time.""
 
             except Exception as e:
                 # If forcing also fails, return a basic fallback
-                print(f"  Failed to force verdict: {e}")
+                logger.error("Failed to force verdict: %s", e)
                 return VerificationResult(
                     claim=claim,
                     verdict="INSUFFICIENT_EVIDENCE",

@@ -1,10 +1,14 @@
 """File loading utilities for various document formats."""
 
+import logging
 import os
 from typing import List
+
 from langchain_core.documents import Document
 import PyPDF2
 import fitz  # PyMuPDF - alternative for better text extraction
+
+logger = logging.getLogger(__name__)
 
 
 class FileLoader:
@@ -41,7 +45,7 @@ class FileLoader:
 
         except ImportError:
             # Fallback to PyPDF2 if PyMuPDF not available
-            print("PyMuPDF not available, falling back to PyPDF2...")
+            logger.warning("PyMuPDF not available, falling back to PyPDF2...")
 
             with open(file_path, "rb") as file:
                 pdf_reader = PyPDF2.PdfReader(file)

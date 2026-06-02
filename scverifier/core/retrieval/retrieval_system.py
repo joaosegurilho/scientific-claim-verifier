@@ -6,6 +6,7 @@ This is the BOUNDARY LAYER between domain objects and LangChain.
 - Conversion happens at the boundary
 """
 
+import logging
 import os
 import pickle
 import time
@@ -16,6 +17,8 @@ from langchain_ollama import OllamaEmbeddings
 
 from scverifier.config.settings import Config
 from scverifier.data.models import Chunk, Proposition
+
+logger = logging.getLogger(__name__)
 
 
 class RetrievalSystem:
@@ -86,7 +89,7 @@ class RetrievalSystem:
                     break
 
         if verbose:
-            print(f"   Created proposition vector store with {len(propositions)} propositions")
+            logger.info("Created proposition vector store with %d propositions", len(propositions))
 
     def create_chunk_vectorstore(self, chunks: List[Chunk], verbose: bool = True):
         """Create a new vector store from document chunks.
@@ -124,7 +127,7 @@ class RetrievalSystem:
                     break
 
         if verbose:
-            print(f"   Created chunk vector store with {len(chunks)} chunks")
+            logger.info("Created chunk vector store with %d chunks", len(chunks))
 
     # ======================== INCREMENTAL UPDATES ========================
 
@@ -167,7 +170,7 @@ class RetrievalSystem:
                         break
 
             if verbose:
-                print(f"   Added {len(propositions)} propositions to existing vectorstore")
+                logger.info("Added %d propositions to existing vectorstore", len(propositions))
 
     def add_to_chunk_vectorstore(self, chunks: List[Chunk], verbose: bool = True):
         """Add chunks to existing vectorstore or create new one if none exists.
@@ -210,7 +213,7 @@ class RetrievalSystem:
                         break
 
             if verbose:
-                print(f"   Added {len(chunks)} chunks to existing vectorstore")
+                logger.info("Added %d chunks to existing vectorstore", len(chunks))
 
     # ======================== DELETION ========================
 
@@ -238,16 +241,16 @@ class RetrievalSystem:
                 invalid_ids = [pid for pid in prop_ids if pid not in existing_ids]
 
                 if invalid_ids and verbose:
-                    print(f"   Warning: {len(invalid_ids)} proposition IDs not found in vectorstore (stale mapping)")
+                    logger.warning("%d proposition IDs not found in vectorstore (stale mapping)", len(invalid_ids))
 
                 if valid_ids:
                     try:
                         self.proposition_vectorstore.delete(valid_ids)
                         if verbose:
-                            print(f"   Deleted {len(valid_ids)} propositions from vectorstore")
+                            logger.info("Deleted %d propositions from vectorstore", len(valid_ids))
                     except Exception as e:
                         if verbose:
-                            print(f"   Warning: Deletion failed: {e}")
+                            logger.warning("Deletion failed: %s", e)
 
                 # Clean up mapping regardless
                 del self.paper_to_prop_ids[paper_id]
@@ -258,7 +261,7 @@ class RetrievalSystem:
                     self.proposition_vectorstore = None
                     self.proposition_retriever = None
                     if verbose:
-                        print("   Proposition vectorstore is now empty")
+                        logger.info("Proposition vectorstore is now empty")
 
         # Delete chunks
         if paper_id in self.paper_to_chunk_ids and self.chunk_vectorstore:
@@ -270,16 +273,16 @@ class RetrievalSystem:
                 invalid_ids = [cid for cid in chunk_ids if cid not in existing_ids]
 
                 if invalid_ids and verbose:
-                    print(f"   Warning: {len(invalid_ids)} chunk IDs not found in vectorstore (stale mapping)")
+                    logger.warning("%d chunk IDs not found in vectorstore (stale mapping)", len(invalid_ids))
 
                 if valid_ids:
                     try:
                         self.chunk_vectorstore.delete(valid_ids)
                         if verbose:
-                            print(f"   Deleted {len(valid_ids)} chunks from vectorstore")
+                            logger.info("Deleted %d chunks from vectorstore", len(valid_ids))
                     except Exception as e:
                         if verbose:
-                            print(f"   Warning: Deletion failed: {e}")
+                            logger.warning("Deletion failed: %s", e)
 
                 # Clean up mapping regardless
                 del self.paper_to_chunk_ids[paper_id]
@@ -290,7 +293,7 @@ class RetrievalSystem:
                     self.chunk_vectorstore = None
                     self.chunk_retriever = None
                     if verbose:
-                        print("   Chunk vectorstore is now empty")
+                        logger.info("Chunk vectorstore is now empty")
 
         return deleted
 
@@ -596,7 +599,7 @@ class RetrievalSystem:
         """
         if proposition_path and self.proposition_vectorstore:
             prop_count = len(self.proposition_vectorstore.docstore._dict)
-            print(f"     Saving proposition vectorstore ({prop_count} items)...")
+            logger.debug("Saving proposition vectorstore (%d items)...", prop_count)
             t0 = time.time()
             self.proposition_vectorstore.save_local(proposition_path)
 
@@ -606,11 +609,11 @@ class RetrievalSystem:
                 pickle.dump(self.paper_to_prop_ids, f)
 
             t1 = time.time()
-            print(f"     Proposition vectorstore saved: {t1 - t0:.2f}s")
+            logger.debug("Proposition vectorstore saved: %.2fs", t1 - t0)
 
         if chunk_path and self.chunk_vectorstore:
             chunk_count = len(self.chunk_vectorstore.docstore._dict)
-            print(f"     Saving chunk vectorstore ({chunk_count} items)...")
+            logger.debug("Saving chunk vectorstore (%d items)...", chunk_count)
             t0 = time.time()
             self.chunk_vectorstore.save_local(chunk_path)
 
@@ -620,7 +623,7 @@ class RetrievalSystem:
                 pickle.dump(self.paper_to_chunk_ids, f)
 
             t1 = time.time()
-            print(f"     Chunk vectorstore saved: {t1 - t0:.2f}s")
+            logger.debug("Chunk vectorstore saved: %.2fs", t1 - t0)
 
     def load_vectorstores(self, proposition_path: str = None, chunk_path: str = None):
         """Load vector stores from disk.
@@ -655,7 +658,7 @@ class RetrievalSystem:
                             self.paper_to_prop_ids[paper_id] = []
                         self.paper_to_prop_ids[paper_id].append(doc_id)
 
-            print(f"   Proposition vector store loaded from {proposition_path}")
+            logger.info("Proposition vector store loaded from %s", proposition_path)
 
         if chunk_path:
             self.chunk_vectorstore = FAISS.load_local(
@@ -680,4 +683,4 @@ class RetrievalSystem:
                             self.paper_to_chunk_ids[paper_id] = []
                         self.paper_to_chunk_ids[paper_id].append(doc_id)
 
-            print(f"   Chunk vector store loaded from {chunk_path}")
+            logger.info("Chunk vector store loaded from %s", chunk_path)

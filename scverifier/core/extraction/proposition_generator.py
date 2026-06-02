@@ -1,5 +1,6 @@
 """Improved proposition generation from document chunks using LLMs."""
 
+import logging
 from typing import List
 
 from langchain_core.prompts import ChatPromptTemplate, FewShotChatMessagePromptTemplate
@@ -7,6 +8,8 @@ from langchain_core.prompts import ChatPromptTemplate, FewShotChatMessagePromptT
 from scverifier.config.settings import Config
 from scverifier.data.models import Chunk, GeneratePropositions, Proposition
 from scverifier.utils.id_generator import get_next_prop_id
+
+logger = logging.getLogger(__name__)
 
 
 class PropositionGenerator:
@@ -165,7 +168,7 @@ class PropositionGenerator:
 
             return propositions
         except Exception as e:
-            print(f"        Failed to extract propositions (timeout/error): {str(e)[:50]}")
+            logger.error("Failed to extract propositions (timeout/error): %s", str(e)[:50])
             return []
 
     def generate_propositions_from_chunks(self, chunks: List[Chunk]) -> List[Proposition]:
@@ -182,6 +185,6 @@ class PropositionGenerator:
         for i, chunk in enumerate(chunks):
             propositions = self.generate_propositions_from_chunk(chunk)
             all_propositions.extend(propositions)
-            print(f"      Analysed chunk {i}. Found {len(propositions)} propositions.")
+            logger.debug("Analysed chunk %d. Found %d propositions.", i, len(propositions))
 
         return all_propositions

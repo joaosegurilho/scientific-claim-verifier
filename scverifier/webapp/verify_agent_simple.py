@@ -2,8 +2,11 @@
 
 import asyncio
 import json
+import logging
 import traceback
 from typing import AsyncGenerator
+
+logger = logging.getLogger(__name__)
 
 
 async def stream_agent_verification(
@@ -17,9 +20,7 @@ async def stream_agent_verification(
     This is a simplified version that's easy to debug.
     Returns SSE-formatted strings ready to yield.
     """
-    print("\n" + "=" * 80, flush=True)
-    print(f"[STREAM START] Claim: {claim[:80]}...", flush=True)
-    print("=" * 80 + "\n", flush=True)
+    logger.info("Stream verification started for claim: %s...", claim[:80])
 
     # Step 1: Initialize tracking variables
     final_agent_message = None
@@ -28,12 +29,12 @@ async def stream_agent_verification(
 
     try:
         # Step 2: Get the agent stream
-        print("[STEP 1] Creating agent stream...", flush=True)
+        logger.debug("Creating agent stream...")
         stream = agent.verify_claim_stream(claim, debug=False)
-        print("[STEP 1] Agent stream created successfully", flush=True)
+        logger.debug("Agent stream created successfully")
 
         # Step 3: Process each event from the stream
-        print("[STEP 2] Starting to process events...", flush=True)
+        logger.debug("Starting to process events...")
         async for event in stream:
             event_count += 1
             event_type = event.get("type", "unknown")
@@ -42,29 +43,29 @@ async def stream_agent_verification(
             if event_type == "tool_call":
                 tool_call_count += 1
                 tool_name = event.get("tool", "unknown")
-                print(f"[EVENT {event_count}] Tool call #{tool_call_count}: {tool_name}", flush=True)
+                logger.debug("[EVENT %d] Tool call #%d: %s", event_count, tool_call_count, tool_name)
 
             elif event_type == "tool_result":
                 result_preview = str(event.get("content", ""))[:80]
-                print(f"[EVENT {event_count}] Tool result: {result_preview}...", flush=True)
+                logger.debug("[EVENT %d] Tool result: %s...", event_count, result_preview)
 
             elif event_type == "agent_message":
                 final_agent_message = event.get("content")
                 msg_preview = final_agent_message[:100] if final_agent_message else "None"
-                print(f"[EVENT {event_count}] Agent message: {msg_preview}...", flush=True)
+                logger.debug("[EVENT %d] Agent message: %s...", event_count, msg_preview)
 
             else:
-                print(f"[EVENT {event_count}] Type: {event_type}", flush=True)
+                logger.debug("[EVENT %d] Type: %s", event_count, event_type)
 
             # Send event to client
             yield f"data: {json.dumps(event)}\n\n"
             await asyncio.sleep(0.01)
 
-        print(f"\n[STEP 3] Stream completed. Total events: {event_count}", flush=True)
+        logger.debug("Stream completed. Total events: %d", event_count)
 
         # Step 4: Check if we got a final message
         if not final_agent_message:
-            print("[ERROR] No final agent message received!", flush=True)
+            logger.error("No final agent message received!")
             error_data = {
                 "type": "error",
                 "error": "Agent did not provide a final response",
@@ -74,21 +75,23 @@ async def stream_agent_verification(
             return
 
         # Step 5: Parse the final message
-        print("[STEP 4] Parsing agent response...", flush=True)
+        logger.debug("Parsing agent response...")
         verdict, confidence, reasoning, evidence_ids = agent._parse_agent_response(final_agent_message)
-        print(f"[STEP 4] Parsed: verdict={verdict}, confidence={confidence}", flush=True)
+        logger.debug("Parsed: verdict=%s, confidence=%s", verdict, confidence)
 
         # Step 6: Build the completion response
-        print("[STEP 5] Building completion response...", flush=True)
+        logger.debug("Building completion response...")
 
         # Get tracked IDs
         seen_proposition_ids = set(getattr(agent, "_last_seen_proposition_ids", []))
         seen_paper_ids = set(getattr(agent, "_last_seen_paper_ids", []))
         seen_chunk_ids = set(getattr(agent, "_last_seen_chunk_ids", []))
 
-        print(
-            f"[STEP 5] Tracked: {len(seen_proposition_ids)} props, {len(seen_paper_ids)} papers, {len(seen_chunk_ids)} chunks",
-            flush=True,
+        logger.debug(
+            "Tracked: %d props, %d papers, %d chunks",
+            len(seen_proposition_ids),
+            len(seen_paper_ids),
+            len(seen_chunk_ids),
         )
 
         # Collect evidence
@@ -96,7 +99,7 @@ async def stream_agent_verification(
         evidence_chunks = _collect_chunks(kb, seen_chunk_ids)
         evidence_papers = _collect_papers(kb, seen_paper_ids, evidence_ids)
 
-        print(f"[STEP 5] Collected: {len(evidence)} evidence props, {len(evidence_papers)} papers", flush=True)
+        logger.debug("Collected: %d evidence props, %d papers", len(evidence), len(evidence_papers))
 
         # Format for JSON
         evidence_list = _format_evidence(evidence, kb)
@@ -127,14 +130,13 @@ async def stream_agent_verification(
             "confidence_level": confidence_level,
         }
 
-        print(f"[SUCCESS] Verification complete: {verdict} ({confidence:.1f}/10)", flush=True)
-        print("=" * 80 + "\n", flush=True)
+        logger.info("Verification complete: %s (%.1f/10)", verdict, confidence)
 
         yield f"data: {json.dumps(result_data)}\n\n"
 
     except Exception as e:
-        print(f"\n[EXCEPTION] Error during streaming: {str(e)}", flush=True)
-        print(f"[EXCEPTION] Traceback:\n{traceback.format_exc()}", flush=True)
+        logger.error("Error during streaming: %s", str(e))
+        logger.error("Traceback:\n%s", traceback.format_exc())
 
         error_data = {"type": "error", "error": str(e), "details": traceback.format_exc()}
         yield f"data: {json.dumps(error_data)}\n\n"

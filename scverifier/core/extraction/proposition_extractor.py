@@ -1,11 +1,14 @@
 """Simplified proposition extraction component - stateless and modular."""
 
+import logging
 from typing import Dict, Any, List, Optional
 
 from scverifier.core.processing.document_processor import DocumentProcessor
 from scverifier.core.extraction.proposition_generator import PropositionGenerator
 from scverifier.core.extraction.proposition_evaluator import PropositionEvaluator
 from scverifier.data.models import Paper
+
+logger = logging.getLogger(__name__)
 
 
 class PropositionExtractor:
@@ -50,7 +53,7 @@ class PropositionExtractor:
                 - propositions_quality: Only propositions that passed quality checks
         """
         if show_steps:
-            print(" Extracting propositions...")
+            logger.info("Extracting propositions...")
 
         # Ensure metadata has required fields
         if metadata is None:
@@ -67,39 +70,39 @@ class PropositionExtractor:
 
         # Step 1: Chunk the text into Chunk objects
         if show_steps:
-            print("    Step 1: Chunking document...")
+            logger.info("Step 1: Chunking document...")
 
         chunks = self.document_processor.chunk(text, metadata)
 
         if show_steps:
-            print(f"      Created {len(chunks)} chunks")
+            logger.info("  Created %d chunks", len(chunks))
 
         # Step 2: Generate propositions from chunks
         if show_steps:
-            print("    Step 2: Generating propositions...")
+            logger.info("Step 2: Generating propositions...")
 
         raw_propositions = self.proposition_generator.generate_propositions_from_chunks(chunks)
 
         if show_steps:
-            print(f"      Generated {len(raw_propositions)} propositions")
+            logger.info("  Generated %d propositions", len(raw_propositions))
 
         # Step 3: Evaluate propositions (or skip if disabled)
         if self.skip_evaluation:
             if show_steps:
-                print("    Step 3: Skipping evaluation (all propositions accepted)")
+                logger.info("Step 3: Skipping evaluation (all propositions accepted)")
 
             propositions_all = raw_propositions
             propositions_quality = raw_propositions
         else:
             if show_steps:
-                print("     Step 3: Evaluating proposition quality...")
+                logger.info("Step 3: Evaluating proposition quality...")
 
             # Evaluate propositions using Chunk objects
             evaluated_propositions = self.proposition_evaluator.evaluate_propositions(raw_propositions, chunks)
 
             if show_steps:
                 passed = sum(1 for p in evaluated_propositions if p.is_high_quality())
-                print(f"      {passed}/{len(evaluated_propositions)} propositions passed quality checks")
+                logger.info("  %d/%d propositions passed quality checks", passed, len(evaluated_propositions))
 
             propositions_all = evaluated_propositions
             propositions_quality = [p for p in evaluated_propositions if p.is_high_quality()]
@@ -130,22 +133,25 @@ class PropositionExtractor:
         # Announce what we're about to extract (full text vs abstract)
         if show_steps:
             intended = "full text" if use_full_text else "abstract"
-            print(
-                f" Extracting propositions from paper '{paper.title[:60]}' (id={paper.id}) — intended source: {intended}"
+            logger.info(
+                "Extracting propositions from paper '%s' (id=%s) — intended source: %s",
+                paper.title[:60],
+                paper.id,
+                intended,
             )
 
         # Determine which text to process
         if use_full_text and paper.full_text:
             # Process each section of full_text
             if show_steps:
-                print(f"  Using full text for extraction: found {len(paper.full_text)} sections")
+                logger.info("Using full text for extraction: found %d sections", len(paper.full_text))
 
             for section_name, section_text in paper.full_text:
                 if not section_text.strip():
                     continue
 
                 if show_steps:
-                    print(f"    Processing section: {section_name} (paper id={paper.id})")
+                    logger.info("  Processing section: %s (paper id=%s)", section_name, paper.id)
 
                 # Extract page number if section name is "page_N"
                 page_num = None
@@ -185,22 +191,29 @@ class PropositionExtractor:
 
                 if show_steps:
                     if self.skip_evaluation:
-                        print(
-                            f"      Generated {len(section_propositions)} propositions from {len(section_chunks)} chunks (evaluation skipped)"
+                        logger.info(
+                            "  Generated %d propositions from %d chunks (evaluation skipped)",
+                            len(section_propositions),
+                            len(section_chunks),
                         )
                     else:
                         passed = sum(1 for p in section_propositions if p.is_high_quality())
-                        print(
-                            f"      Generated {len(section_propositions)} propositions from {len(section_chunks)} chunks ({passed} passed quality checks)"
+                        logger.info(
+                            "  Generated %d propositions from %d chunks (%d passed quality checks)",
+                            len(section_propositions),
+                            len(section_chunks),
+                            passed,
                         )
 
         else:
             # Fallback to abstract if no full text available
             if show_steps:
                 if use_full_text and not paper.full_text:
-                    print("  Requested full-text extraction, but no full text available — falling back to abstract.")
+                    logger.info(
+                        "Requested full-text extraction, but no full text available — falling back to abstract."
+                    )
                 else:
-                    print("  Using abstract for extraction...")
+                    logger.info("Using abstract for extraction...")
 
             metadata = {
                 "paper_id": paper.id,
@@ -215,8 +228,8 @@ class PropositionExtractor:
             if not text_to_extract or not text_to_extract.strip():
                 # No abstract available - skip extraction
                 if show_steps:
-                    print(f"  Warning: Paper '{paper.id}' has no abstract - skipping proposition extraction")
-                    print("    (Use use_full_text=True to extract from full text instead)")
+                    logger.warning("Paper '%s' has no abstract - skipping proposition extraction", paper.id)
+                    logger.info("(Use use_full_text=True to extract from full text instead)")
                 all_chunks = []
                 all_propositions = []
             else:
@@ -250,20 +263,19 @@ class PropositionExtractor:
             List of updated Paper objects with propositions
         """
         if show_steps:
-            print(f"\n Extracting from {len(papers)} papers...")
+            logger.info("Extracting from %d papers...", len(papers))
 
         for i, paper in enumerate(papers):
             if show_steps:
                 source_msg = "full_text" if use_full_text and paper.full_text else "abstract"
-                print(f"\n   Paper {i+1}/{len(papers)}: {paper.title[:60]}... (extracting from {source_msg})")
+                logger.info("Paper %d/%d: %s... (extracting from %s)", i + 1, len(papers), paper.title[:60], source_msg)
 
             # Call extractor; let extract_from_paper control its own detailed prints
             self.extract_from_paper(paper, show_steps=show_steps, use_full_text=use_full_text)
 
             if show_steps:
                 quality = len(paper.get_quality_propositions())
-                print(f"      Extracted {len(paper.propositions)} total propositions")
-                print(f"      Extracted {quality} quality propositions")
+                logger.info("  Extracted %d total propositions, %d quality", len(paper.propositions), quality)
 
         return papers
 

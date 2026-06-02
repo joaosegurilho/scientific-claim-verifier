@@ -20,7 +20,7 @@ class PropositionGenerator:
 
         # Initialize LLM
         self.llm = Config.with_llm(
-            model=Config.LLM_MODEL,
+            # model=Config.LLM_MODEL,
             temperature=Config.LLM_TEMPERATURE,
             timeout=Config.LLM_TIMEOUT,
         )

@@ -47,7 +47,7 @@ class LiteratureSearch:
             Dictionary with 'original', 'opposite', and 'neutral' queries
         """
         llm = Config.with_llm(
-            model=Config.LLM_MODEL,
+            # model=Config.LLM_MODEL,
             temperature=Config.LLM_TEMPERATURE,
             timeout=Config.LLM_TIMEOUT,
         )
@@ -99,7 +99,11 @@ Now generate for the given claim:"""
         Returns:
             List of generated paper title queries
         """
-        llm = Config.with_llm(model=Config.LLM_MODEL, temperature=temp, timeout=Config.LLM_TIMEOUT)
+        llm = Config.with_llm(
+            # model=Config.LLM_MODEL,
+            temperature=temp,
+            timeout=Config.LLM_TIMEOUT,
+        )
 
         prompt = f"""You are a scientific literature search expert. Given these research queries:
 

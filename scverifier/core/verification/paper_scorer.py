@@ -59,7 +59,11 @@ class PaperScorer:
         self.timeout = llm_timeout if llm_timeout is not None else Config.LLM_TIMEOUT
 
         # Initialize LLM for metadata extraction
-        self.llm = Config.with_llm(model=Config.LLM_MODEL, temperature=0, timeout=self.timeout)
+        self.llm = Config.with_llm(
+            # model=Config.LLM_MODEL,
+            temperature=0,
+            timeout=self.timeout,
+        )
         self.structured_llm = self.llm.with_structured_output(PaperMetadata)
 
         # Create metadata extraction prompt
@@ -288,7 +292,12 @@ Extract the metadata:"""
         except Exception:
             # Fallback to alternate model
             print(f"         ⚠ Primary model failed, falling back to {Config.LLM_FALLBACK_MODEL}...")
-            self.llm = Config.with_llm(model=Config.LLM_FALLBACK_MODEL, temperature=0, timeout=self.timeout)
+            self.llm = Config.with_llm(
+                fallback=True,
+                # model=Config.LLM_FALLBACK_MODEL,
+                temperature=0,
+                timeout=self.timeout,
+            )
             self.structured_llm = self.llm.with_structured_output(PaperMetadata)
             self.metadata_extractor = self.prompt | self.structured_llm
             # Retry with fallback model

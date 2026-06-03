@@ -49,5 +49,6 @@ def configure_logging(
         "matplotlib",
         "PIL",
         "PIL.PngImagePlugin",
+        "google_genai.models",  # ignore this also
     ):
         logging.getLogger(lib).setLevel(logging.WARNING)

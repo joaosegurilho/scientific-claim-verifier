@@ -1,17 +1,50 @@
 """Stateless verification pipeline using modular components."""
 
 import logging
+import sys
+import traceback
 from typing import List
 
+from scverifier.config.settings import Config
 from scverifier.core.extraction.proposition_extractor import PropositionExtractor
 from scverifier.core.knowledge.knowledge_base import KnowledgeBase
 from scverifier.core.knowledge.literature_search import LiteratureSearch
 from scverifier.core.verification.claim_verifier import ClaimVerifier
+from scverifier.core.verification.confidence_interpreter import (
+    get_confidence_interpretation,
+)
 from scverifier.core.verification.paper_scorer import PaperScorer
 from scverifier.data.models import Proposition, VerificationResult
-from scverifier.config.settings import Config
 
 logger = logging.getLogger(__name__)
+
+
+def format_verdict(verdict: str) -> str:
+    """Format verdict with emoji.
+
+    Args:
+        verdict: Verdict string
+
+    Returns:
+        Formatted verdict with emoji
+    """
+    emoji_map = {"SUPPORTS": "", "REFUTES": "", "INSUFFICIENT_EVIDENCE": "❓"}
+    return f"{emoji_map.get(verdict, '')} {verdict}"
+
+
+def format_confidence(confidence: float) -> str:
+    """Format confidence with visual bar.
+
+    Args:
+        confidence: Confidence value (0-10)
+
+    Returns:
+        Formatted confidence string
+    """
+    bars = int(confidence)
+    empty = 10 - bars
+    bar_str = "█" * bars + "░" * empty
+    return f"{confidence:.1f}/10 [{bar_str}]"
 
 
 class VerificationPipeline:
@@ -37,6 +70,97 @@ class VerificationPipeline:
         self.extractor = PropositionExtractor()
         self.paper_scorer = PaperScorer()
         self.claim_verifier = ClaimVerifier(kb=kb)  # Pass KB for credibility lookup
+
+    def __call__(
+        self,
+        claim: str,
+        max_papers: int = 30,
+        kb_only: bool = False,
+        skip_extraction_eval: bool = False,
+        use_all_propositions: bool = False,
+    ):
+        """Call the instance to run the pipeline.
+
+        Args:
+            claim: Scientific claim to verify
+            max_papers: Maximum number of papers to search for and process (only applies if kb_only=False)
+            kb_only: If True, use only existing knowledge base data (no online search, no new papers processed)
+            skip_extraction_eval: If True, skip quality evaluation during proposition extraction (faster, accepts all propositions). Only applies when kb_only=False.
+            use_all_propositions: If True, use all propositions instead of only quality ones during claim verification. Useful with --kb-only when quality evaluation was skipped during extraction.
+        """
+        print("\n" + "=" * 70)
+        print(" CLAIM VERIFICATION PIPELINE")
+        print("=" * 70)
+
+        print("\n Configuration:")
+        print(f"   Claim: {claim}")
+        if not kb_only:
+            print(f"   Max papers: {max_papers}")
+            print("   Batch size: 5 papers (with incremental saving)")
+            print(f"   Skip extraction evaluation: {skip_extraction_eval}")
+        print(f"   Mode: {'KB-only' if kb_only else 'Search + KB'}")
+        print(f"   Use all propositions: {use_all_propositions}")
+
+        try:
+            self.kb.load()
+            print(f"   Knowledge base loaded from {Config.DB_NAME}")
+        except FileNotFoundError:
+            if kb_only:
+                print(f"    Error: No knowledge base found at {Config.DB_NAME}")
+                print("   Cannot use --kb-only mode without an existing knowledge base.")
+                print("   Run without --kb-only to search for papers first.")
+                sys.exit(1)
+            else:
+                print(f"     No existing knowledge base found at {Config.DB_NAME}")
+                print("   Starting with fresh knowledge base.")
+        except Exception as e:
+            print(f"     Error loading knowledge base: {e}")
+            if kb_only:
+                print("   Cannot proceed in --kb-only mode.")
+                sys.exit(1)
+            print("   Starting with fresh knowledge base.")
+
+        if skip_extraction_eval:
+            self.extractor.skip_evaluation = True
+            print("\tExtraction evaluation: DISABLED (faster, all propositions accepted)")
+        else:
+            self.extractor.skip_evaluation = False
+            print("\tExtraction evaluation: ENABLED (quality filtering)")
+
+        print("\n Starting verification...\n")
+
+        try:
+            # quality_claims controls whether to filter to quality propositions during verification
+            quality_claims = not use_all_propositions
+
+            if kb_only:
+                # Use only KB data
+                result = self.verify_claim_from_kb(claim, quality_claims=quality_claims)
+            else:
+                # Search for papers and verify
+                # Note: The extraction evaluation is already configured via self.extractor.skip_evaluation
+                result = self.verify_claim_with_search(claim, max_papers=max_papers, quality_claims=quality_claims)
+
+            # Print results
+            self._print_results(result)
+
+            # Note: KB already saved incrementally during search
+            # This final save is just a safety check
+            if not kb_only:
+                print(f"\n{'=' * 70}")
+                print("  Note: Knowledge base was saved incrementally during processing")
+
+            print(f"\n{'=' * 70}")
+            print(" Verification complete!")
+            print("=" * 70 + "\n")
+
+        except KeyboardInterrupt:
+            print("\n\n  Verification interrupted by user.")
+            sys.exit(1)
+        except Exception as e:
+            print(f"\n\n Error during verification: {e}")
+            traceback.print_exc()
+            sys.exit(1)
 
     # ======================== VERIFICATION WITH SEARCH ========================
 
@@ -80,7 +204,10 @@ class VerificationPipeline:
         logger.info("  Neutral query: %s", search_queries.get("neutral", "N/A"))
 
         papers_found = self.literature_search.search_papers(
-            query=claim, search_queries=search_queries, max_papers=max_papers, verbose=True
+            query=claim,
+            search_queries=search_queries,
+            max_papers=max_papers,
+            verbose=True,
         )
         logger.info("  Retrieved %d papers", len(papers_found))
 
@@ -101,7 +228,11 @@ class VerificationPipeline:
             else:
                 new_papers.append(paper)
 
-        logger.info("  New papers: %d, Already processed: %d", len(new_papers), len(existing_papers))
+        logger.info(
+            "  New papers: %d, Already processed: %d",
+            len(new_papers),
+            len(existing_papers),
+        )
 
         # Extract propositions from new papers
         if new_papers:
@@ -188,7 +319,11 @@ class VerificationPipeline:
                 evidence=[],
             )
 
-        logger.info("KB stats - Papers: %d, Quality propositions: %d", stats["papers"], stats["propositions_quality"])
+        logger.info(
+            "KB stats - Papers: %d, Quality propositions: %d",
+            stats["papers"],
+            stats["propositions_quality"],
+        )
         if use_abstract_only:
             logger.info("Filter: Abstract propositions only")
 
@@ -291,7 +426,11 @@ class VerificationPipeline:
 
         # Diversify propositions (limit per paper for source diversity)
         retrieved_props = self._diversify_propositions(all_retrieved, max_per_paper=max_props_per_paper)
-        logger.info("  Diversified to %d propositions (max %d per paper)", len(retrieved_props), max_props_per_paper)
+        logger.info(
+            "  Diversified to %d propositions (max %d per paper)",
+            len(retrieved_props),
+            max_props_per_paper,
+        )
 
         # Re-rank by credibility
         retrieved_props = self._rerank_by_credibility(retrieved_props)
@@ -360,3 +499,84 @@ class VerificationPipeline:
                 filtered.append(prop)
 
         return filtered
+
+    def _print_results(result: VerificationResult, kb: KnowledgeBase):
+        """Print verification results in a nice format.
+
+        Args:
+            result: VerificationResult object
+            kb: KnowledgeBase instance for accessing paper data
+        """
+        print("\n" + "=" * 70)
+        print(" VERIFICATION RESULTS")
+        print("=" * 70)
+
+        print("\n Claim:")
+        print(f"   {result.claim}")
+
+        print(f"\n{format_verdict(result.verdict)}")
+
+        print("\n Confidence:")
+        print(f"   {format_confidence(result.confidence)}")
+        interpretation = get_confidence_interpretation(result.verdict, int(round(result.confidence)))
+        print(f"   {interpretation}")
+
+        print("\n Reasoning:")
+        # Word wrap reasoning
+        reasoning = result.reasoning
+        words = reasoning.split()
+        lines = []
+        current_line = "   "
+
+        for word in words:
+            if len(current_line) + len(word) + 1 <= 70:
+                current_line += word + " "
+            else:
+                lines.append(current_line.rstrip())
+                current_line = "   " + word + " "
+
+        if current_line.strip():
+            lines.append(current_line.rstrip())
+
+        print("\n".join(lines))
+
+        print("\n Evidence Summary:")
+        print(f"   Evidence used: {len(result.evidence)} propositions")
+        print(f"   Sources: {len(result.get_papers_used())} papers")
+
+        # Show ALL evidence sources with condensed format
+        if result.evidence:
+            print("\n All Evidence Sources:")
+            print("=" * 70)
+
+            for i, prop in enumerate(result.evidence, 1):
+                # Get paper and credibility info
+                paper = kb.get_paper(prop.paper_id)
+                if paper and paper.credibility:
+                    evidence_emoji = "" if paper.credibility.evidence_type == "full_text" else ""
+                    paper_info = (
+                        f"{prop.source} "
+                        f"({paper.credibility.study_type}, {evidence_emoji} {paper.credibility.evidence_type}, "
+                        f"{paper.credibility.rating}/5★)"
+                    )
+                else:
+                    paper_info = f"{prop.source} (Not scored)"
+
+                # Proposition quality
+                if prop.evaluation:
+                    avg_score = prop.evaluation.average_score()
+                    prop_quality = f"{prop.text.strip()}  (avg: {avg_score:.1f}/10)"
+                else:
+                    prop_quality = f"{prop.text.strip()}  (not evaluated)"
+
+                # Get URL (prefer PDF URL if available)
+                url = ""
+                if paper:
+                    url = paper.pdf_url if paper.pdf_url else paper.url
+
+                # Print condensed 4-line summary
+                print(f"\n   {i}. {paper_info}")
+                if url and paper:
+                    print(f"      {paper.id} |  {url}")
+                print(f"      {prop_quality}")
+                print()  # blank line for spacing

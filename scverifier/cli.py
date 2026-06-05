@@ -17,11 +17,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scverifier.utils.logging_config import configure_logging
 
-if __name__ == "__main__":
+
+def main():
     parser = argparse.ArgumentParser(description="SciVerifier Command Line Interface")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable debug-level logging")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    ## Verification Parser
     verify_parser = subparsers.add_parser("verify", help="Run the claim verification pipeline")
     verify_parser.add_argument("claim", help="Scientific claim to verify")
     verify_parser.add_argument(
@@ -46,16 +48,23 @@ if __name__ == "__main__":
         help="Use all propositions instead of only quality ones during claim verification. Useful with --kb-only when quality evaluation was skipped during extraction.",
     )
 
+    ## Extraction Parser
     extract_parser = subparsers.add_parser("extract", help="Run the proposition extraction pipeline")
     extract_parser.add_argument(
         "files",
         nargs="*",
+        type=Path,
         help="File(s) or folder(s) to process (default: data/demo_paper.pdf)",
     )
 
-    webapp_parser = subparsers.add_parser("webapp", help="Run the web application")
-    query_parser = subparsers.add_parser("query", help="Query the knowledge base")
-    benchmark_parser = subparsers.add_parser("benchmark", help="Run benchmarks")
+    ## Web App Parser
+    # webapp_parser = subparsers.add_parser("webapp", help="Run the web application")
+
+    ## Query Parser
+    # query_parser = subparsers.add_parser("query", help="Query the knowledge base")
+
+    ## Benchmark Parser
+    # benchmark_parser = subparsers.add_parser("benchmark", help="Run benchmarks")
 
     args = parser.parse_args()
 
@@ -85,8 +94,10 @@ if __name__ == "__main__":
         print("Extract command selected")
         from scverifier.pipelines.extraction_pipeline import ExtractionPipeline
 
-        extraction_pipeline = ExtractionPipeline(arg_path=args.files)
-        extraction_pipeline(args.files)
+        paths_to_process = args.files if args.files else Path("data/demo_paper.pdf")
+
+        extraction_pipeline = ExtractionPipeline(arg_path=paths_to_process)
+        extraction_pipeline(paths_to_process)
 
     elif args.command == "webapp":
         raise NotImplementedError("Web application is not implemented yet")
@@ -94,3 +105,7 @@ if __name__ == "__main__":
         raise NotImplementedError("Query interface not implemented yet")
     elif args.command == "benchmark":
         raise NotImplementedError("Benchmark is not implemented yet")
+
+
+if __name__ == "__main__":
+    main()

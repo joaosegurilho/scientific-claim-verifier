@@ -88,6 +88,12 @@ class VerificationPipeline:
             skip_extraction_eval: If True, skip quality evaluation during proposition extraction (faster, accepts all propositions). Only applies when kb_only=False.
             use_all_propositions: If True, use all propositions instead of only quality ones during claim verification. Useful with --kb-only when quality evaluation was skipped during extraction.
         """
+        self.claim = claim
+        self.max_papers = max_papers
+        self.kb_only = kb_only
+        self.skip_extraction_eval = skip_extraction_eval
+        self.use_all_propositions = use_all_propositions
+
         print("\n" + "=" * 70)
         print(" CLAIM VERIFICATION PIPELINE")
         print("=" * 70)
@@ -500,12 +506,11 @@ class VerificationPipeline:
 
         return filtered
 
-    def _print_results(result: VerificationResult, kb: KnowledgeBase):
+    def _print_results(self, result: VerificationResult):
         """Print verification results in a nice format.
 
         Args:
             result: VerificationResult object
-            kb: KnowledgeBase instance for accessing paper data
         """
         print("\n" + "=" * 70)
         print(" VERIFICATION RESULTS")
@@ -551,7 +556,7 @@ class VerificationPipeline:
 
             for i, prop in enumerate(result.evidence, 1):
                 # Get paper and credibility info
-                paper = kb.get_paper(prop.paper_id)
+                paper = self.kb.get_paper(prop.paper_id)
                 if paper and paper.credibility:
                     evidence_emoji = "" if paper.credibility.evidence_type == "full_text" else ""
                     paper_info = (

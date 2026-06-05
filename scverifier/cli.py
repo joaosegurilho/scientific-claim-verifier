@@ -58,7 +58,14 @@ def main():
     )
 
     ## Web App Parser
-    # webapp_parser = subparsers.add_parser("webapp", help="Run the web application")
+    webapp_parser = subparsers.add_parser("webapp", help="Run the web application")
+    webapp_parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port to run the web application on (default: 8000)",
+    )
+    webapp_parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)")
 
     ## Query Parser
     # query_parser = subparsers.add_parser("query", help="Query the knowledge base")
@@ -100,7 +107,17 @@ def main():
         extraction_pipeline(paths_to_process)
 
     elif args.command == "webapp":
-        raise NotImplementedError("Web application is not implemented yet")
+        import uvicorn
+
+        print("\n" + "=" * 70)
+        print(" Starting Scientific Claim Verification Web Application")
+        print("=" * 70)
+        print(f"\n Knowledge Base: {len(kb.papers)} papers loaded")
+        print(" Server: http://localhost:8000")
+        print(" Documentation: http://localhost:8000/docs")
+        print("\n" + "=" * 70 + "\n")
+
+        uvicorn.run("scverifier.webapp.main:app", host=args.host, port=args.port, reload=True)
     elif args.command == "query":
         raise NotImplementedError("Query interface not implemented yet")
     elif args.command == "benchmark":

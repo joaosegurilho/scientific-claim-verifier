@@ -2,6 +2,7 @@
 .venv
 .vscode
 .ruff_cache
+pytest_output*
 
 # data
 benchmark_results/*

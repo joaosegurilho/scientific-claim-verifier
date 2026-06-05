@@ -208,9 +208,9 @@ async def papers_page(
     pagination = paginate_items(papers_list, page, per_page=100)
 
     return templates.TemplateResponse(
+        request,
         "papers.html",
         {
-            "request": request,
             "papers": pagination["items"],
             "stats": kb.get_statistics(),
             "full_text_filter": full_text,
@@ -240,9 +240,9 @@ async def paper_detail(request: Request, paper_id: str):
     has_fulltext_propositions = paper.extracted_from in ["full_text", "both"]
 
     return templates.TemplateResponse(
+        request,
         "paper_detail.html",
         {
-            "request": request,
             "paper": paper,
             "stats": stats,
             "quality_props": quality_props,
@@ -356,9 +356,9 @@ async def propositions_page(request: Request, filter: str = "quality", page: int
     pagination = paginate_items(all_props, page, per_page=100)
 
     return templates.TemplateResponse(
+        request,
         "propositions.html",
         {
-            "request": request,
             "propositions": pagination["items"],
             "total": pagination["total_items"],
             "filter_mode": filter,
@@ -372,9 +372,9 @@ async def search_propositions(request: Request, query: str = Form(...)):
     """Search for similar propositions."""
     if not query.strip():
         return templates.TemplateResponse(
+            request,
             "propositions.html",
             {
-                "request": request,
                 "propositions": [],
                 "total": 0,
                 "query": query,
@@ -386,7 +386,7 @@ async def search_propositions(request: Request, query: str = Form(...)):
     results = kb.search_propositions(query)
 
     return templates.TemplateResponse(
-        "propositions.html", {"request": request, "propositions": results, "total": len(results), "query": query}
+        request, "propositions.html", {"propositions": results, "total": len(results), "query": query}
     )
 
 
@@ -418,9 +418,9 @@ async def proposition_detail(request: Request, prop_id: str):
         raise HTTPException(status_code=404, detail=f"Chunk with ID '{proposition.chunk_id}' not found.")
 
     return templates.TemplateResponse(
+        request,
         "proposition_detail.html",
         {
-            "request": request,
             "paper": paper,
             "chunk": chunk,
             "proposition": proposition,
@@ -450,7 +450,7 @@ async def chunk_detail_with_paper(request: Request, paper_id: str, chunk_id: str
     chunk_propositions = [p for p in paper.propositions if p.chunk_id == chunk_id]
 
     return templates.TemplateResponse(
-        "chunk_detail.html", {"request": request, "paper": paper, "chunk": chunk, "propositions": chunk_propositions}
+        request, "chunk_detail.html", {"paper": paper, "chunk": chunk, "propositions": chunk_propositions}
     )
 
 
@@ -477,7 +477,7 @@ async def chunk_detail(request: Request, chunk_id: str):
     chunk_propositions = [p for p in paper.propositions if p.chunk_id == chunk_id]
 
     return templates.TemplateResponse(
-        "chunk_detail.html", {"request": request, "paper": paper, "chunk": chunk, "propositions": chunk_propositions}
+        request, "chunk_detail.html", {"paper": paper, "chunk": chunk, "propositions": chunk_propositions}
     )
 
 
@@ -496,9 +496,9 @@ async def chunks_page(request: Request, page: int = 1):
     pagination = paginate_items(all_chunks, page, per_page=100)
 
     return templates.TemplateResponse(
+        request,
         "chunks.html",
         {
-            "request": request,
             "chunks": pagination["items"],
             "total": pagination["total_items"],
             "pagination": pagination,
@@ -511,15 +511,16 @@ async def search_chunks(request: Request, query: str = Form(...)):
     """Search for similar chunks."""
     if not query.strip():
         return templates.TemplateResponse(
+            request,
             "chunks.html",
-            {"request": request, "chunks": [], "total": 0, "query": query, "error": "Please enter a search query."},
+            {"chunks": [], "total": 0, "query": query, "error": "Please enter a search query."},
         )
 
     # Search using knowledge base
     results = kb.search_chunks(query)
 
     return templates.TemplateResponse(
-        "chunks.html", {"request": request, "chunks": results, "total": len(results), "query": query}
+        request, "chunks.html", {"chunks": results, "total": len(results), "query": query}
     )
 
 
@@ -530,7 +531,7 @@ async def search_chunks(request: Request, query: str = Form(...)):
 async def verify_page(request: Request):
     """Display claim verification page."""
     stats = kb.get_statistics()
-    return templates.TemplateResponse("verify.html", {"request": request, "kb_stats": stats})
+    return templates.TemplateResponse(request, "verify.html", {"kb_stats": stats})
 
 
 @app.post("/verify", response_class=HTMLResponse)
@@ -551,16 +552,17 @@ async def verify_claim(
     """Verify a scientific claim."""
     if not claim.strip():
         return templates.TemplateResponse(
+            request,
             "verify.html",
-            {"request": request, "error": "Please enter a claim to verify.", "kb_stats": kb.get_statistics()},
+            {"error": "Please enter a claim to verify.", "kb_stats": kb.get_statistics()},
         )
 
     # If agent mode is selected, render streaming page
     if verification_mode == "agent":
         return templates.TemplateResponse(
+            request,
             "verify.html",
             {
-                "request": request,
                 "claim": claim,
                 "verification_mode": verification_mode,
                 "agent_mode": True,
@@ -645,9 +647,9 @@ async def verify_claim(
         confidence_level = get_confidence_level(int(round(result.confidence)))
 
         return templates.TemplateResponse(
+            request,
             "verify.html",
             {
-                "request": request,
                 "claim": claim,
                 "search_mode": search_mode,
                 "max_papers": max_papers,
@@ -670,9 +672,9 @@ async def verify_claim(
         logs.append(f" Error: {str(e)}")
 
         return templates.TemplateResponse(
+            request,
             "verify.html",
             {
-                "request": request,
                 "claim": claim,
                 "search_mode": search_mode,
                 "error": f"Error during verification: {str(e)}",
@@ -740,7 +742,7 @@ async def verify_agent_stream(claim: str, allow_online_search: bool = False, age
 async def qa_page(request: Request):
     """Display Q&A page for asking questions to the knowledge base."""
     stats = kb.get_statistics()
-    return templates.TemplateResponse("qa.html", {"request": request, "kb_stats": stats})
+    return templates.TemplateResponse(request, "qa.html", {"kb_stats": stats})
 
 
 @app.post("/qa", response_class=HTMLResponse)
@@ -753,9 +755,9 @@ async def ask_question(
     """Process a question and return an AI-generated answer."""
     if not question.strip():
         return templates.TemplateResponse(
+            request,
             "qa.html",
             {
-                "request": request,
                 "error": "Please enter a question.",
                 "kb_stats": kb.get_statistics(),
             },
@@ -776,9 +778,9 @@ async def ask_question(
 
         if not propositions:
             return templates.TemplateResponse(
+                request,
                 "qa.html",
                 {
-                    "request": request,
                     "question": question,
                     "retrieval_mode": retrieval_mode,
                     "max_results": max_results,
@@ -794,9 +796,9 @@ async def ask_question(
         logs.append(" Response generated successfully!")
 
         return templates.TemplateResponse(
+            request,
             "qa.html",
             {
-                "request": request,
                 "question": question,
                 "retrieval_mode": retrieval_mode,
                 "max_results": max_results,
@@ -812,9 +814,9 @@ async def ask_question(
         logs.append(f" Error: {str(e)}")
 
         return templates.TemplateResponse(
+            request,
             "qa.html",
             {
-                "request": request,
                 "question": question,
                 "retrieval_mode": retrieval_mode,
                 "error": f"Error processing question: {str(e)}",
@@ -832,7 +834,7 @@ async def ask_question(
 async def visualize_page(request: Request):
     """Display proposition timeline visualization page."""
     stats = kb.get_statistics()
-    return templates.TemplateResponse("visualize.html", {"request": request, "kb_stats": stats})
+    return templates.TemplateResponse(request, "visualize.html", {"kb_stats": stats})
 
 
 @app.post("/visualize", response_class=HTMLResponse)
@@ -845,9 +847,9 @@ async def generate_visualization(
     """Generate proposition timeline visualization."""
     if not query.strip():
         return templates.TemplateResponse(
+            request,
             "visualize.html",
             {
-                "request": request,
                 "error": "Please enter a query.",
                 "kb_stats": kb.get_statistics(),
             },
@@ -865,9 +867,9 @@ async def generate_visualization(
 
         if not propositions_with_scores:
             return templates.TemplateResponse(
+                request,
                 "visualize.html",
                 {
-                    "request": request,
                     "query": query,
                     "top_k": top_k,
                     "quality_only": quality_only,
@@ -894,9 +896,9 @@ async def generate_visualization(
         source_papers = [kb.papers[paper_id] for paper_id in unique_paper_ids if paper_id in kb.papers]
 
         return templates.TemplateResponse(
+            request,
             "visualize.html",
             {
-                "request": request,
                 "query": query,
                 "top_k": top_k,
                 "quality_only": quality_only,
@@ -917,9 +919,9 @@ async def generate_visualization(
         logger.error(error_details)
 
         return templates.TemplateResponse(
+            request,
             "visualize.html",
             {
-                "request": request,
                 "query": query,
                 "top_k": top_k,
                 "error": f"Error generating visualization: {str(e)}",

@@ -112,7 +112,7 @@ def main():
         print("\n" + "=" * 70)
         print(" Starting Scientific Claim Verification Web Application")
         print("=" * 70)
-        print(f"\n Knowledge Base: {len(kb.papers)} papers loaded")
+        # print(f"\n Knowledge Base: {len(kb.papers)} papers loaded")
         print(" Server: http://localhost:8000")
         print(" Documentation: http://localhost:8000/docs")
         print("\n" + "=" * 70 + "\n")

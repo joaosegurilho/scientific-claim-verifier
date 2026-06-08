@@ -21,14 +21,14 @@ class Config:
     # Azure APIs
     AZURE_API_KEY: str | None = os.getenv("AZURE_API_KEY")
     AZURE_ENDPOINT: str | None = os.getenv("AZURE_ENDPOINT")
-    AZURE_DEPLOYMENT_NAMES: list[str] | None = os.getenv("AZURE_DEPLOYMENT_NAMES")
-    # AZURE_API_VERSION: str | None = os.getenv("AZURE_API_VERSION")
+    AZURE_DEPLOYMENT_NAMES: list[str] = os.getenv("AZURE_DEPLOYMENT_NAMES").split(",")
     AZURE_MODEL_DEPLOYMENT_MAPPING: dict[str, str] = dict(
         zip(
             [x.strip("deployment-") for x in AZURE_DEPLOYMENT_NAMES],
             AZURE_DEPLOYMENT_NAMES,
         )
     )
+    AZURE_API_VERSION: str = "2025-04-14"  # Default API version for Azure OpenAI (update as needed)
 
     # Gemini APIs
     GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
@@ -152,7 +152,7 @@ class Config:
             return AzureChatOpenAI(
                 azure_endpoint=cls.AZURE_ENDPOINT,
                 api_key=cls.AZURE_API_KEY,
-                # api_version=cls.AZURE_API_VERSION,
+                api_version=cls.AZURE_API_VERSION,
                 azure_deployment=cls.AZURE_MODEL_DEPLOYMENT_MAPPING.get(model),
                 temperature=temperature,
                 max_tokens=max_tokens,

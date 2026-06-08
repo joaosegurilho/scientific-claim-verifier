@@ -161,3 +161,10 @@ Features:
 - Verify scientific claims with visual timeline
 - Upload and process documents with/without claim extraction
 - Autonomous agent-based verification
+
+
+### Run tests
+```bash
+# All at once (pytest discovers test_*.py files)
+uv run pytest tests/ -v
+```

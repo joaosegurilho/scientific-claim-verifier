@@ -88,7 +88,7 @@ class Config:
     BATCH_FILE_SPLIT_LIMIT: int = 2000  # Maximum number of requests per batch file (split if exceeded)
 
     FEATURES: set[str] = set()
-    KNOWN_FEAUTURES: set[str] = {}  # Add new features here as they are developed
+    KNOWN_FEAUTURES: set[str] = set()
 
     # TODO: might be redudndant with environment variable loading at the top - consider consolidating
     # Might only be needed if other libs require the keys to be a differnt name

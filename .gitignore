@@ -3,6 +3,8 @@
 .vscode
 .ruff_cache
 pytest_output*
+experiments/*
+
 
 # data
 benchmark_results/*

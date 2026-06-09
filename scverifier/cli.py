@@ -15,7 +15,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scverifier.core.benchmarking.base import VerificationMethod
+from scverifier.config.settings import Config
+from scverifier.core.benchmarking import VerificationMethod
 from scverifier.utils.logging_config import configure_logging
 
 
@@ -128,7 +129,18 @@ def main():
     # query_parser = subparsers.add_parser("query", help="Query the knowledge base")
 
     ## Benchmark Parser
-    # benchmark_parser = subparsers.add_parser("benchmark", help="Run benchmarks")
+    benchmark_parser = subparsers.add_parser("benchmark", help="Run benchmarks from YAML config")
+    benchmark_parser.add_argument(
+        "--config",
+        "-c",
+        type=Path,
+        help="Path to YAML experiment config file",
+    )
+    benchmark_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate config and print plan without running",
+    )
 
     args = parser.parse_args()
 
@@ -211,8 +223,100 @@ def main():
 
     elif args.command == "query":
         raise NotImplementedError("Query interface not implemented yet")
+
     elif args.command == "benchmark":
-        raise NotImplementedError("Benchmark is not implemented yet")
+        if not args.config:
+            print("Error: --config is required for the benchmark command")
+            sys.exit(1)
+
+        import yaml
+
+        from scverifier.config.override import apply_experiment_config
+        from scverifier.config.yaml_config import build_experiment_config
+        from scverifier.core.benchmarking import get_benchmark
+        from scverifier.core.benchmarking.run_benchmark import BenchmarkRunner
+
+        config_path = Path(args.config)
+        with open(config_path) as f:
+            raw_config = yaml.safe_load(f)
+
+        parsed_config = build_experiment_config(raw_config)
+        unknown = set(parsed_config.features) - Config.KNOWN_FEAUTURES
+        if unknown:
+            raise ValueError(f"Unknown features: {unknown}. Known: {Config.KNOWN_FEAUTURES}")
+
+        if args.dry_run:
+            from datetime import datetime
+
+            from scverifier.core.benchmarking import BENCHMARK_MAP, METHOD_MAP
+
+            counter_file = Path("experiments/.counter")
+            next_counter = int(counter_file.read_text().strip()) + 1 if counter_file.exists() else 1
+            run_name = parsed_config.experiment.name or "unnamed"
+            output_dir = f"experiments/results/exp_{next_counter:03d}_{run_name}_{datetime.now().strftime('%Y%m%d')}"
+
+            print("Dry run — experiment plan:")
+            print(f"  Name:        {parsed_config.experiment.name or 'Unnamed'}")
+            print(f"  Description: {parsed_config.experiment.description or '-'}")
+            print(f"  Agent model: {parsed_config.model.agent_model or '(default)'}")
+            print(f"  Embedding:   {parsed_config.model.embedding_model or '(default)'}")
+            print(f"  KB:          {parsed_config.kb or '(default)'}")
+            print(f"  Features:    {parsed_config.features or 'none'}")
+            print(f"  Output:      {output_dir}")
+            print(f"  Benchmarks:  {len(parsed_config.benchmark)}")
+            for item in parsed_config.benchmark:
+                print(f"    - {item.dataset}/{item.method} split={item.split or 'all'}")
+                benchmark_cls = BENCHMARK_MAP[item.dataset]
+                vm = METHOD_MAP[item.method]
+                try:
+                    if item.dataset == "scifact":
+                        bm = benchmark_cls(split=item.split, verification_method=vm)
+                    else:
+                        bm = benchmark_cls(verification_method=vm)
+                    bm.load(max_items=1)
+                    print("      ✓ data available")
+                except FileNotFoundError as e:
+                    print(f"      ✗ data not found: {e}")
+                except Exception as e:
+                    print(f"      ! load error: {e}")
+            sys.exit(0)
+
+        experiments_dir = Path("experiments")
+        counter_file = experiments_dir / ".counter"
+        counter_file.parent.mkdir(parents=True, exist_ok=True)
+        if not counter_file.exists():
+            counter_file.write_text("0")
+        counter = int(counter_file.read_text().strip()) + 1
+        counter_file.write_text(str(counter))
+
+        apply_experiment_config(parsed_config)
+
+        from datetime import datetime
+
+        run_name = parsed_config.experiment.name or "unnamed"
+        date_str = datetime.now().strftime("%Y%m%d")
+        output_dir = experiments_dir / "results" / f"exp_{counter:03d}_{run_name}_{date_str}"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        with open(output_dir / "config.yaml", "w") as f:
+            yaml.dump(raw_config, f)
+
+        with open(output_dir / "settings_snapshot.yaml", "w") as f:
+            yaml.dump(
+                {k: getattr(Config, k) for k in dir(Config) if k.isupper() and not k.startswith("_")},
+                f,
+            )
+
+        for bm_item in parsed_config.benchmark:
+            print(f"\nBenchmark: {bm_item.dataset}/{bm_item.method} (split={bm_item.split or 'all'})")
+            benchmark = get_benchmark(bm_item.dataset, bm_item.method, bm_item.split)
+            runner = BenchmarkRunner(
+                benchmark=benchmark,
+                results_dir=output_dir,
+                method=METHOD_MAP[bm_item.method],
+                run_dir=output_dir / f"{bm_item.dataset}_{bm_item.method}",
+            )
+            runner.run(max_papers=bm_item.max_papers or 10)
     else:
         raise ValueError(f"Missing command. Choose one of [{', '.join(list(subparsers.choices.keys()))}]")
 

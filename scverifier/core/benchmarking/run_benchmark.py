@@ -17,6 +17,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -81,6 +82,7 @@ class BenchmarkRunner:
         results_dir: Path,
         method: VerificationMethod,
         resume_dir: Path = None,
+        run_dir: Optional[Path] = None,
     ):
         self.benchmark = benchmark
         self.method = method
@@ -88,15 +90,16 @@ class BenchmarkRunner:
         self.results_dir.mkdir(parents=True, exist_ok=True)
         self.resume_dir = resume_dir
 
-        if resume_dir:
-            # Reuse existing directory
+        if run_dir:
+            self.run_dir = run_dir
+        elif resume_dir:
             self.run_dir = resume_dir
         else:
-            # Create new timestamped subdirectory
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             method_name = method.value
             self.run_dir = self.results_dir / f"{benchmark.name.lower()}_{method_name}_{timestamp}"
-            self.run_dir.mkdir(parents=True, exist_ok=True)
+
+        self.run_dir.mkdir(parents=True, exist_ok=True)
 
         # Create subdirectories
         self.logs_dir = self.run_dir / "logs"

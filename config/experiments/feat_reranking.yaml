@@ -1,0 +1,33 @@
+experiment:
+  name: "feat_reranking"
+  description: "Default pipeline, with additional features for reranking retrieved papers and testing multiple benchmark datasets."
+
+model:
+  pipeline_model: "gpt-4o-mini"
+  agent_model: "gemini-2.5-flash"
+  embedding_model: "nomic-embed-text:v1.5"
+  llm_temperature: 0
+  chunk_size: 300
+  chunk_overlap: 50
+
+kb:
+  db_name: reranking_kb
+
+features: ["reranking"]
+
+benchmark:
+  - dataset: "scifact"
+    split: "test"
+    max_claims: null
+    method: "agentless"
+    max_papers: 10
+  
+  - dataset: "msvec"
+    split: "test"
+    max_claims: null
+    method: "agentless"
+    max_papers: 10
+
+cost_tracking:
+  enabled: true
+  budget_usd: 5.0

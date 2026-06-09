@@ -15,6 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from scverifier.core.benchmarking.base import VerificationMethod
 from scverifier.utils.logging_config import configure_logging
 
 
@@ -67,6 +68,62 @@ def main():
     )
     webapp_parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)")
 
+    ## Dataset Parser
+    dataset_parser = subparsers.add_parser("dataset", help="Run a dataset through the claim verification pipeline")
+    dataset_parser.add_argument("file", type=Path, help="Dataset to verify")
+    dataset_parser.add_argument(
+        "--output",
+        "-o",
+        type=Path,
+        help="Output of verified dataset. (default: [dataset_path]_verified.[dataset_ext])",
+    )
+    dataset_parser.add_argument(
+        "--claim-col",
+        type=int,
+        default="1",
+        help='The index of the claims column in the dataset (Default: "Claims")',
+    )
+    dataset_parser.add_argument(
+        "--id-col",
+        type=int,
+        default=0,
+        help="The index of the id column in the dataset (Default: None -> use 0)",
+    )
+    dataset_parser.add_argument(
+        "--method",
+        choices=list(VerificationMethod),
+        default=VerificationMethod.AGENTLESS_WITH_SEARCH,
+        help="Verification method to employ.",
+    )
+    dataset_parser.add_argument(
+        "--kb-only",
+        action="store_true",
+        help="Use only existing knowledge base data (don't search for new papers)",
+    )
+    dataset_parser.add_argument(
+        "--skip-extraction-eval",
+        action="store_true",
+        help="Skip quality evaluation during proposition extraction (faster, accepts all propositions). Only applies when searching for new papers.",
+    )
+    dataset_parser.add_argument(
+        "--use-all-propositions",
+        action="store_true",
+        help="Use all propositions instead of only quality ones during claim verification. Useful with --kb-only when quality evaluation was skipped during extraction.",
+    )
+    dataset_parser.add_argument(
+        "--max-papers",
+        type=int,
+        default=10,
+        help="Maximum number of papers to search for (default: 10)",
+    )
+    dataset_parser.add_argument("--max-items", type=int, help="Max items from the dataset to verify.")
+    dataset_parser.add_argument(
+        "--resume",
+        "-r",
+        action="store_true",
+        help="Resume a previous dataset verification pipeline. Requires --output to be the output of a previous interrupted run.",
+    )
+
     ## Query Parser
     # query_parser = subparsers.add_parser("query", help="Query the knowledge base")
 
@@ -81,7 +138,9 @@ def main():
     configure_logging(verbose=args.verbose, log_file=logs_dir / f"{args.command}.log")
 
     if args.command == "verify":
-        print("Verify command selected")
+        print("\n" + "=" * 70)
+        print(" Starting Verification.")
+        print("=" * 70)
         from scverifier.core.knowledge.knowledge_base import KnowledgeBase
         from scverifier.pipelines.verification_pipeline import VerificationPipeline
 
@@ -98,7 +157,10 @@ def main():
         )
 
     elif args.command == "extract":
-        print("Extract command selected")
+        print("\n" + "=" * 70)
+        print(" Starting Extraction.")
+        print("=" * 70)
+
         from scverifier.pipelines.extraction_pipeline import ExtractionPipeline
 
         paths_to_process = args.files if args.files else Path("data/demo_paper.pdf")
@@ -118,10 +180,41 @@ def main():
         print("\n" + "=" * 70 + "\n")
 
         uvicorn.run("scverifier.webapp.main:app", host=args.host, port=args.port, reload=True)
+    elif args.command == "dataset":
+        from scverifier.core.dataset_verifier import DatasetVerifier
+
+        print("\n" + "=" * 70)
+        print(f" {'Resuming' if args.resume else 'Starting'} Dataset Verification")
+        print(f" Dataset at: {args.file}")
+        print("=" * 70)
+
+        d_verifier = DatasetVerifier(
+            dataset_path=args.file,
+            output_path=args.output,
+            claim_column=args.claim_col,
+            id_column=args.id_col,
+            method=args.method,
+        )
+        d_verifier.run(
+            kb_only=args.kb_only,
+            skip_extraction_eval=args.skip_extraction_eval,
+            use_all_propositions=args.use_all_propositions,
+            max_papers=args.max_papers,
+            max_items=args.max_items,
+            resume=args.resume,
+        )
+
+        print("=" * 70)
+        print("Verification done.")
+        print(f" Saving at {d_verifier.output_path}")
+        print("=" * 70)
+
     elif args.command == "query":
         raise NotImplementedError("Query interface not implemented yet")
     elif args.command == "benchmark":
         raise NotImplementedError("Benchmark is not implemented yet")
+    else:
+        raise ValueError(f"Missing command. Choose one of [{', '.join(list(subparsers.choices.keys()))}]")
 
 
 if __name__ == "__main__":

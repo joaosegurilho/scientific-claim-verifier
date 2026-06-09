@@ -95,10 +95,10 @@ class Config:
     @classmethod
     def setup_environment(cls):
         """Set up environment variables."""
-        if cls.GEMINI_API_KEY:
-            os.environ["GOOGLE_API_KEY"] = str(cls.GEMINI_API_KEY)
-        else:
-            raise ValueError("GEMINI_API_KEY not found in environment variables")
+        # if cls.GEMINI_API_KEY:
+        #     os.environ["GOOGLE_API_KEY"] = str(cls.GEMINI_API_KEY)
+        # else:
+        #     raise ValueError("GEMINI_API_KEY not found in environment variables")
 
         if cls.SEMANTIC_SCHOLAR_API_KEY:
             os.environ["SEMANTIC_SCHOLAR_API_KEY"] = str(cls.SEMANTIC_SCHOLAR_API_KEY)

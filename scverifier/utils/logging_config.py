@@ -50,5 +50,6 @@ def configure_logging(
         "PIL",
         "PIL.PngImagePlugin",
         "google_genai.models",  # ignore this also
+        "google_genai._api_client",  # ignore this also
     ):
         logging.getLogger(lib).setLevel(logging.WARNING)

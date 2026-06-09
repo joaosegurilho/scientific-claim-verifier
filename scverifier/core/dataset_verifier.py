@@ -12,6 +12,8 @@ from scverifier.core.knowledge.knowledge_base import KnowledgeBase
 from scverifier.pipelines.verification_pipeline import VerificationPipeline
 
 
+# TODO: Finda better way to progressively write
+# TODO: Add csv suport (think about it better) in the test too
 # TODO: Add support for  skip_extraction_eval and use_all_propositions
 class DatasetVerifier:
     def __init__(
@@ -24,7 +26,7 @@ class DatasetVerifier:
     ):
         self.dataset_path: Path = dataset_path
         self.output_path: Path | None = (
-            output_path if output_path else dataset_path.parent / f"{dataset_path.stem}_verified{dataset_path.suffix}"
+            output_path if output_path else dataset_path.parent / f"{dataset_path.stem}_verified.jsonl"
         )
         self.claim_column: int = claim_column
         self.id_column: int | None = id_column  # Set to None if using index as ID
@@ -32,7 +34,10 @@ class DatasetVerifier:
 
         self.kb: KnowledgeBase = KnowledgeBase()
         self.data: List = []
-        self.processed_index: int | None = 0
+        # Number of items that have been processed (i.e. verified). Use int count.
+        self.processed_index: int = 0
+        # Number of records already written to the output file. Used to append only new records.
+        # self._saved_count: int = 0
 
     def load(self, max_items: int | None = None):
         """
@@ -66,7 +71,7 @@ class DatasetVerifier:
                     "row": row,
                 }
 
-            for row in islice(reader, start=1, stop=max_items):
+            for row in islice(reader, 1, max_items):
                 records.append(extract_row(row))
 
         return records
@@ -76,9 +81,22 @@ class DatasetVerifier:
         Load a JSONL dataset.
         """
         records = []
-        with open(self.dataset_path, "r") as f:
-            for line in islice(f.readlines(), max_items):
-                records.append(json.loads(line))
+        with open(self.dataset_path, "r", encoding="utf-8") as f:
+            for idx, line in enumerate(islice(f, max_items)):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(obj, dict):
+                    rec_id = str(obj.get("id", idx))
+                    claim = obj.get("claim", "")
+                    records.append({"id": rec_id, "claim": claim, "row": obj})
+                else:
+                    records.append({"id": str(idx), "claim": "", "row": obj})
+
         return records
 
     def run(
@@ -130,14 +148,15 @@ class DatasetVerifier:
 
         self.load(max_items=max_items)
         if resume:
-            verified_claims = self._get_verified_claims()
+            verified_claims = set(self._get_verified_claims())
+        else:
+            verified_claims = set()
 
         for i, item in enumerate(self.data):
-            claim_id = item["id"]
-            if resume:
-                if claim_id in verified_claims:
-                    continue
-            claim_text = item["claim"]
+            claim_id = item.get("id", str(i))
+            if claim_id in verified_claims:
+                continue
+            claim_text = item.get("claim", "")
 
             print(f"Verifying claim {claim_id}: {claim_text}")
 
@@ -167,10 +186,14 @@ class DatasetVerifier:
                 print(f"Error verifying claim {claim_id}: {e}")
                 self.data[i]["error"] = str(e)
 
-            # Save
-            self.save()
-
+            # Update processed count then save so only new records are written
             self.processed_index = i + 1
+            try:
+                self.save()
+            except Exception as e:
+                print(f"Error saving progress after claim {claim_id}: {e}")
+            # Track how many were saved
+            # self._saved_count = self.processed_index
 
     def _get_verified_claims(self):
         verified_claims = []
@@ -184,23 +207,23 @@ class DatasetVerifier:
                         )
                         verified_claims.append(str(claim))
 
-            elif ext == ".csv":
-                csv_reader = csv.reader(f)
-                for i, row in enumerate(csv_reader):
-                    if i == 0:
-                        continue
-                    if row[2] is not None:
-                        claim = str(row[0])
-                        verified_claims.append(claim)
+            # elif ext == ".csv":
+            #     csv_reader = csv.reader(f)
+            #     for i, row in enumerate(csv_reader):
+            #         if i == 0:
+            #             continue
+            #         if row[2] is not None:
+            #             claim = str(row[0])
+            #             verified_claims.append(claim)
 
-            elif ext == ".tsv":
-                tsv_reader = csv.reader(f, delimiter="\t")
-                for i, row in enumerate(tsv_reader):
-                    if i == 0:
-                        continue
-                    if row[2] is not None:
-                        claim = str(row[0])
-                        verified_claims.append(claim)
+            # elif ext == ".tsv":
+            #     tsv_reader = csv.reader(f, delimiter="\t")
+            #     for i, row in enumerate(tsv_reader):
+            #         if i == 0:
+            #             continue
+            #         if row[2] is not None:
+            #             claim = str(row[0])
+            #             verified_claims.append(claim)
 
             elif ext == ".jsonl":
                 for line in f.readlines():
@@ -215,93 +238,125 @@ class DatasetVerifier:
         """
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
         ext = self.output_path.suffix.lower()
-        if ext == ".csv":
-            self._save_csv()
-        elif ext == ".tsv":
-            self._save_csv(sep="\t")
-        elif ext == ".jsonl":
+        # if ext == ".csv":
+        #     self._save_csv()
+        # elif ext == ".tsv":
+        #     self._save_csv(sep="\t")
+        if ext == ".jsonl":
             self._save_jsonl()
         elif ext == ".txt":
             self._save_txt()
         else:
             raise ValueError(f"Unsupported output format: {ext}")
 
-    def _save_csv(self, sep=","):
+    def _get_evidence_titles(self, record):
         """
-        Save the verification results in CSV format.
+        Return a list of evidence titles for a record.
+        Prefer `evidence_sources` if present (list or string), otherwise look up
+        titles from `papers_used` via the knowledge base.
         """
-        mode = "w" if self.processed_index == 0 else "a"
-        with open(self.output_path, mode, newline="", encoding="utf-8") as f:
-            writer = csv.writer(f, delimiter=sep)
-            # Write header
-            if self.processed_index == 0:
-                writer.writerow(
-                    [
-                        "id",
-                        "claim",
-                        "verdict",
-                        "confidence",
-                        "reasoning",
-                        "evidence_sources",
-                        "evidence_count",
-                        "token_input",
-                        "token_output",
-                        "error",
-                    ]
-                )
-            # Write data rows
-            for record in islice(self.data, self.processed_index + 1):
-                writer.writerow(
-                    [
-                        record["id"],
-                        record["claim"],
-                        record.get("verdict", ""),
-                        record.get("confidence", ""),
-                        record.get("reasoning", ""),
-                        "; ".join(self.kb.get_paper(paper).title for paper in record.get("papers_used", [])),
-                        record.get("num_evidence", ""),
-                        record.get("token_usage", {}).get("input_tokens", ""),
-                        record.get("token_usage", {}).get("output_tokens", ""),
-                        record.get("error", ""),
-                    ]
-                )
+        titles = []
+        es = record.get("evidence_sources")
+        if es:
+            if isinstance(es, list):
+                titles = [str(x) for x in es]
+            else:
+                titles = [str(es)]
+        else:
+            for pid in record.get("papers_used", []):
+                try:
+                    paper = self.kb.get_paper(pid)
+                    titles.append(paper.title if paper else str(pid))
+                except Exception:
+                    titles.append(str(pid))
+        return titles
+
+    # def _save_csv(self, sep=","):
+    #     """
+    #     Save the verification results in CSV format.
+    #     """
+    #     mode = "w"
+    #     with open(self.output_path, mode, newline="", encoding="utf-8") as f:
+    #         writer = csv.writer(f, delimiter=sep)
+    #         # Write header
+    #         if self.processed_index == 0:
+    #             writer.writerow(
+    #                 [
+    #                     "id",
+    #                     "claim",
+    #                     "verdict",
+    #                     "confidence",
+    #                     "reasoning",
+    #                     "evidence_sources",
+    #                     "evidence_count",
+    #                     "token_input",
+    #                     "token_output",
+    #                     "error",
+    #                 ]
+    #             )
+    #         # Write data rows
+    #         for record in islice(self.data, self.processed_index + 1):
+    #             titles = self._get_evidence_titles(record)
+    #             evidence_count = record.get(
+    #                 "evidence_count", record.get("num_evidence", "")
+    #             )
+    #             writer.writerow(
+    #                 [
+    #                     record["id"],
+    #                     record["claim"],
+    #                     record.get("verdict", ""),
+    #                     record.get("confidence", ""),
+    #                     record.get("reasoning", ""),
+    #                     "; ".join(titles),
+    #                     evidence_count,
+    #                     record.get("token_usage", {}).get("input_tokens", ""),
+    #                     record.get("token_usage", {}).get("output_tokens", ""),
+    #                     record.get("error", ""),
+    #                 ]
+    #             )
 
     def _save_jsonl(self):
         """
         Save the verification results in JSONL format.
         """
-        mode = "w" if self.processed_index == 0 else "a"
+        mode = "w"
         with open(self.output_path, mode, encoding="utf-8") as f:
             for record in islice(self.data, self.processed_index + 1):
+                titles = self._get_evidence_titles(record)
                 rec = {
                     "id": record["id"],
                     "claim": record["claim"],
                     "verdict": record.get("verdict", ""),
                     "confidence": record.get("confidence", ""),
                     "reasoning": record.get("reasoning", ""),
-                    "evidence_sources": "; ".join(
-                        self.kb.get_paper(paper).title for paper in record.get("papers_used", [])
-                    ),
-                    "evidence_count": record.get("num_evidence", ""),
+                    "evidence_sources": "; ".join(titles),
+                    "evidence_count": record.get("evidence_count", record.get("num_evidence", "")),
                     "token_input": record.get("token_usage", {}).get("input_tokens", ""),
                     "token_output": record.get("token_usage", {}).get("output_tokens", ""),
                     "error": record.get("error", ""),
                 }
 
-                json.dump(rec, f)
+                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
     def _save_txt(self):
         """
         Save the verification results in plain text format.
         """
-        mode = "w" if self.processed_index == 0 else "a"
+        mode = "w"
         with open(self.output_path, mode, encoding="utf-8") as f:
             for record in islice(self.data, self.processed_index + 1):
-                f.write(f"===== Claim <{record['id']:03d}> =====\n")
+                # Preserve zero-padded numeric IDs when possible
+                rid = record.get("id", "")
+                try:
+                    rid_str = f"{int(rid):03d}"
+                except Exception:
+                    rid_str = str(rid)
+                f.write(f"===== Claim <{rid_str}> =====\n")
                 f.write(f"Claim: {record['claim']}\n")
                 f.write(f"Verdict: {record.get('verdict', '')}\n")
                 f.write(f"Confidence: {record.get('confidence', '')}\n")
                 f.write(f"Reasoning: {record.get('reasoning', '')}\n")
-                f.write(f"Evidence Sources: {', '.join(record.get('evidence_sources', []))}\n")
+                titles = self._get_evidence_titles(record)
+                f.write(f"Evidence Sources: {', '.join(titles)}\n")
                 f.write(f"Error: {record.get('error', '')}\n")
                 f.write("-" * 80 + "\n")

@@ -28,7 +28,9 @@ class Config:
             AZURE_DEPLOYMENT_NAMES,
         )
     )
-    AZURE_API_VERSION: str = "2025-04-14"  # Default API version for Azure OpenAI (update as needed)
+    AZURE_API_VERSION: str = (
+        "2024-12-01-preview"  # "2025-04-14"  # Default API version for Azure OpenAI (update as needed)
+    )
 
     # Gemini APIs
     GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
@@ -41,7 +43,7 @@ class Config:
 
     # Model Settings
     LLM_MODEL: str = (
-        "gemini-2.5-flash"  # "gemini-2.5-flash-lite"  # "gemini-2.0-flash-lite" # 2.0 flash lite is older but slightly cheaper
+        "gpt41-mini"  # "gemini-2.5-flash"  # "gemini-2.5-flash-lite"  # "gemini-2.0-flash-lite" # 2.0 flash lite is older but slightly cheaper
     )
     EMBEDDING_MODEL: str = "nomic-embed-text:v1.5"
     BATCH_LLM_MODEL: str = (

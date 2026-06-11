@@ -13,6 +13,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from scverifier.pipelines.benchmark_pipeline import BenchmarkPipeline
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scverifier.config.settings import Config
@@ -23,6 +25,11 @@ from scverifier.utils.logging_config import configure_logging
 def main():
     parser = argparse.ArgumentParser(description="SciVerifier Command Line Interface")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable debug-level logging")
+    parser.add_argument(
+        "--kdb",
+        type=Path,
+        help="Set a new knowledge base location. (default: 'data/kb_all/')",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     ## Verification Parser
@@ -149,10 +156,16 @@ def main():
     # cofigures logging for the entire script, pipelines can log to the same file with different loggers
     configure_logging(verbose=args.verbose, log_file=logs_dir / f"{args.command}.log")
 
+    if args.db:
+        Config.DB_NAME = str(args.db)
+
+    print("\n" + "=" * 70)
+    print(f"Doing {args.command.capitalize}")
+    print(f"\tModel: {Config.LLM_MODEL}")
+    print(f"\tKnowledge Base: {Config.DB_NAME}")
+    print("=" * 70)
+
     if args.command == "verify":
-        print("\n" + "=" * 70)
-        print(" Starting Verification.")
-        print("=" * 70)
         from scverifier.core.knowledge.knowledge_base import KnowledgeBase
         from scverifier.pipelines.verification_pipeline import VerificationPipeline
 
@@ -169,13 +182,11 @@ def main():
         )
 
     elif args.command == "extract":
-        print("\n" + "=" * 70)
-        print(" Starting Extraction.")
-        print("=" * 70)
-
         from scverifier.pipelines.extraction_pipeline import ExtractionPipeline
 
         paths_to_process = args.files if args.files else Path("data/demo_paper.pdf")
+        print()
+        print(f"Processing: {paths_to_process}")
 
         extraction_pipeline = ExtractionPipeline(arg_path=paths_to_process)
         extraction_pipeline(paths_to_process)
@@ -183,21 +194,18 @@ def main():
     elif args.command == "webapp":
         import uvicorn
 
-        print("\n" + "=" * 70)
-        print(" Starting Scientific Claim Verification Web Application")
-        print("=" * 70)
-        # print(f"\n Knowledge Base: {len(kb.papers)} papers loaded")
         print(" Server: http://localhost:8000")
         print(" Documentation: http://localhost:8000/docs")
         print("\n" + "=" * 70 + "\n")
 
         uvicorn.run("scverifier.webapp.main:app", host=args.host, port=args.port, reload=True)
+
     elif args.command == "dataset":
         from scverifier.core.dataset_verifier import DatasetVerifier
 
         print("\n" + "=" * 70)
         print(f" {'Resuming' if args.resume else 'Starting'} Dataset Verification")
-        print(f" Dataset at: {args.file}")
+        print(f" Dataset: {args.file}")
         print("=" * 70)
 
         d_verifier = DatasetVerifier(
@@ -229,94 +237,18 @@ def main():
             print("Error: --config is required for the benchmark command")
             sys.exit(1)
 
-        import yaml
-
-        from scverifier.config.override import apply_experiment_config
-        from scverifier.config.yaml_config import build_experiment_config
-        from scverifier.core.benchmarking import get_benchmark
-        from scverifier.core.benchmarking.run_benchmark import BenchmarkRunner
-
-        config_path = Path(args.config)
-        with open(config_path) as f:
-            raw_config = yaml.safe_load(f)
-
-        parsed_config = build_experiment_config(raw_config)
-        unknown = set(parsed_config.features) - Config.KNOWN_FEAUTURES
-        if unknown:
-            raise ValueError(f"Unknown features: {unknown}. Known: {Config.KNOWN_FEAUTURES}")
+        benchmark_pipeline = BenchmarkPipeline(Path(args.config))
 
         if args.dry_run:
-            from datetime import datetime
-
-            from scverifier.core.benchmarking import BENCHMARK_MAP, METHOD_MAP
-
-            counter_file = Path("experiments/.counter")
-            next_counter = int(counter_file.read_text().strip()) + 1 if counter_file.exists() else 1
-            run_name = parsed_config.experiment.name or "unnamed"
-            output_dir = f"experiments/results/exp_{next_counter:03d}_{run_name}_{datetime.now().strftime('%Y%m%d')}"
-
-            print("Dry run — experiment plan:")
-            print(f"  Name:        {parsed_config.experiment.name or 'Unnamed'}")
-            print(f"  Description: {parsed_config.experiment.description or '-'}")
-            print(f"  Agent model: {parsed_config.model.agent_model or '(default)'}")
-            print(f"  Embedding:   {parsed_config.model.embedding_model or '(default)'}")
-            print(f"  KB:          {parsed_config.kb or '(default)'}")
-            print(f"  Features:    {parsed_config.features or 'none'}")
-            print(f"  Output:      {output_dir}")
-            print(f"  Benchmarks:  {len(parsed_config.benchmark)}")
-            for item in parsed_config.benchmark:
-                print(f"    - {item.dataset}/{item.method} split={item.split or 'all'}")
-                benchmark_cls = BENCHMARK_MAP[item.dataset]
-                vm = METHOD_MAP[item.method]
-                try:
-                    if item.dataset == "scifact":
-                        bm = benchmark_cls(split=item.split, verification_method=vm)
-                    else:
-                        bm = benchmark_cls(verification_method=vm)
-                    bm.load(max_items=1)
-                    print("      ✓ data available")
-                except FileNotFoundError as e:
-                    print(f"      ✗ data not found: {e}")
-                except Exception as e:
-                    print(f"      ! load error: {e}")
+            benchmark_pipeline.dry_run()
             sys.exit(0)
 
-        experiments_dir = Path("experiments")
-        counter_file = experiments_dir / ".counter"
-        counter_file.parent.mkdir(parents=True, exist_ok=True)
-        if not counter_file.exists():
-            counter_file.write_text("0")
-        counter = int(counter_file.read_text().strip()) + 1
-        counter_file.write_text(str(counter))
+        benchmark_pipeline()
 
-        apply_experiment_config(parsed_config)
+        print("=" * 70)
+        print("Benchmark done.")
+        print("=" * 70)
 
-        from datetime import datetime
-
-        run_name = parsed_config.experiment.name or "unnamed"
-        date_str = datetime.now().strftime("%Y%m%d")
-        output_dir = experiments_dir / "results" / f"exp_{counter:03d}_{run_name}_{date_str}"
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        with open(output_dir / "config.yaml", "w") as f:
-            yaml.dump(raw_config, f)
-
-        with open(output_dir / "settings_snapshot.yaml", "w") as f:
-            yaml.dump(
-                {k: getattr(Config, k) for k in dir(Config) if k.isupper() and not k.startswith("_")},
-                f,
-            )
-
-        for bm_item in parsed_config.benchmark:
-            print(f"\nBenchmark: {bm_item.dataset}/{bm_item.method} (split={bm_item.split or 'all'})")
-            benchmark = get_benchmark(bm_item.dataset, bm_item.method, bm_item.split)
-            runner = BenchmarkRunner(
-                benchmark=benchmark,
-                results_dir=output_dir,
-                method=METHOD_MAP[bm_item.method],
-                run_dir=output_dir / f"{bm_item.dataset}_{bm_item.method}",
-            )
-            runner.run(max_papers=bm_item.max_papers or 10)
     else:
         raise ValueError(f"Missing command. Choose one of [{', '.join(list(subparsers.choices.keys()))}]")
 

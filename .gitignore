@@ -9,6 +9,8 @@ experiments/*
 # data
 benchmark_results/*
 data/*
+!data/kb_all/
+!data/kb_all/**
 tests/simple_extraction_tests/*
 tests/test_benchmark_output/*
 tests/test_benchmark_runner_output/*

@@ -1,17 +1,17 @@
 experiment:
-  name: "baseline"
+  name: "baseline_gpt4omini"
   description: "Default pipeline, no additional features"
 
 model:
-  pipeline_model: "gemini-2.5-flash"
-  agent_model: "gemini-2.5-flash"
+  pipeline_model: "gpt4o-mini"
+  agent_model: "gpt4o-mini"
   embedding_model: "nomic-embed-text:v1.5"
   llm_temperature: 0
   chunk_size: 300
   chunk_overlap: 50
 
 kb:
-  db_name: baseline_kb
+  db_name: baseline_gpt4o_kb
 
 features: []
 

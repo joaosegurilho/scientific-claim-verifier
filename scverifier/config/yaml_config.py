@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -76,7 +76,7 @@ def build_experiment_config(data: Dict) -> ExperimentConfig:
     )
 
     kb = data.get("kb", {}).get("db_name")
-    kb_path = Path("data") / f"{kb}.db" if kb else None
+    kb_path = Path("data") / f"{kb}" if kb else Path("data/kb_all")
 
     features = data.get("features", []) or []
 

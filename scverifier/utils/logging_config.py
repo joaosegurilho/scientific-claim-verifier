@@ -3,8 +3,7 @@ from pathlib import Path
 
 
 def configure_logging(
-    level: int = logging.INFO,
-    verbose: bool = False,
+    verbose: int = 0,  # -1 quiet; 0 normal; 1 verbose
     log_file: str | None = None,
     file_level: int = logging.DEBUG,
 ):
@@ -23,8 +22,13 @@ def configure_logging(
         Log level for the file handler (default DEBUG).
     """
 
-    if verbose:
-        level = logging.DEBUG
+    match verbose:
+        case -1:
+            level = logging.FATAL
+        case 0:
+            level = logging.INFO
+        case 1:
+            level = logging.DEBUG
 
     handlers = [logging.StreamHandler()]
     if log_file:

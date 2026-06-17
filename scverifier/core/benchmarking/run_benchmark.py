@@ -22,8 +22,8 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+from tqdm import tqdm
 
-from scverifier.utils.logging_config import configure_logging
 from scverifier.config.settings import Config
 from scverifier.core.agents.autonomous_agent import AutonomousClaimAgent
 from scverifier.core.benchmarking.base import (
@@ -37,6 +37,7 @@ from scverifier.core.benchmarking.msvec_benchmark import MSVEC
 from scverifier.core.benchmarking.scifact_benchmark import SciFact
 from scverifier.core.knowledge.knowledge_base import KnowledgeBase
 from scverifier.pipelines.verification_pipeline import VerificationPipeline
+from scverifier.utils.logging_config import configure_logging
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +108,7 @@ class BenchmarkRunner:
         self.figures_dir = self.run_dir / "figures"
         self.figures_dir.mkdir(exist_ok=True)
 
-    def run(self, max_papers: int = 10):
+    def run(self, max_papers: int = 10, pbar: bool = False):
         """Run the benchmark evaluation."""
         # Start timing
         start_time = time.time()
@@ -160,7 +161,7 @@ class BenchmarkRunner:
         results = []
         successful, failed = 0, 0
 
-        for idx, item in enumerate(self.benchmark.items, 1):
+        for idx, item in tqdm(enumerate(self.benchmark.items, 1), disable=not pbar):
             print(f"\n[{idx}/{len(self.benchmark.items)}] Claim {item.claim_id}")
             print(f"Claim: {item.claim[:100]}...")
             print(f"Expected: {item.expected_result}")
@@ -199,7 +200,12 @@ class BenchmarkRunner:
                     is_rate_limit = "429" in error_str or "rate" in error_str.lower() or "quota" in error_str.lower()
 
                     if is_rate_limit and attempt < max_retries:
-                        logger.warning("Rate limit error (attempt %d/%d): %s", attempt + 1, max_retries + 1, e)
+                        logger.warning(
+                            "Rate limit error (attempt %d/%d): %s",
+                            attempt + 1,
+                            max_retries + 1,
+                            e,
+                        )
                         print(f"Waiting {retry_delay} seconds before retry...")
                         log_buffer.write(f"\nRate limit error (attempt {attempt + 1}): {e}\n")
                         log_buffer.write(f"Waiting {retry_delay} seconds before retry...\n")

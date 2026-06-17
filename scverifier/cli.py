@@ -5,7 +5,7 @@ scverifier verify "claim" [--max-papers N] [--kb-only] [--skip-extraction-eval] 
 scverifier extract [paths...] (no args → demo paper)
 scverifier webapp [--port N]
 scverifier query "question"
-scverifier benchmark run [dataset] [--max-items N]
+scverifier bulk <file> [--output FILE] [--method ...]
 
 """
 
@@ -13,18 +13,14 @@ import argparse
 import sys
 from pathlib import Path
 
-from scverifier.pipelines.benchmark_pipeline import BenchmarkPipeline
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from scverifier.config.settings import Config
-from scverifier.core.benchmarking import VerificationMethod
-from scverifier.utils.logging_config import configure_logging
 
 
 def main():
     parser = argparse.ArgumentParser(description="SciVerifier Command Line Interface")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable debug-level logging")
+    parser.add_argument("--quiet", "-q", action="store_true", help="Suppress all logging")
+
     parser.add_argument(
         "--kdb",
         type=Path,
@@ -76,60 +72,60 @@ def main():
     )
     webapp_parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)")
 
-    ## Dataset Parser
-    dataset_parser = subparsers.add_parser("dataset", help="Run a dataset through the claim verification pipeline")
-    dataset_parser.add_argument("file", type=Path, help="Dataset to verify")
-    dataset_parser.add_argument(
+    ## Bulk Parser
+    bulk_parser = subparsers.add_parser("bulk", help="Verify claims from a CSV/JSONL file")
+    bulk_parser.add_argument("file", type=Path, help="CSV or JSONL file with claims")
+    bulk_parser.add_argument(
         "--output",
         "-o",
         type=Path,
-        help="Output of verified dataset. (default: [dataset_path]_verified.[dataset_ext])",
+        help="Output path (default: [file]_verified.jsonl)",
     )
-    dataset_parser.add_argument(
+    bulk_parser.add_argument(
         "--claim-col",
         type=int,
         default="1",
         help='The index of the claims column in the dataset (Default: "Claims")',
     )
-    dataset_parser.add_argument(
+    bulk_parser.add_argument(
         "--id-col",
         type=int,
         default=0,
         help="The index of the id column in the dataset (Default: None -> use 0)",
     )
-    dataset_parser.add_argument(
+    bulk_parser.add_argument(
         "--method",
-        choices=list(VerificationMethod),
-        default=VerificationMethod.AGENTLESS_WITH_SEARCH,
+        choices=["agent", "agentless", "agent_with_search", "agentless_with_search"],
+        default="agentless_with_search",
         help="Verification method to employ.",
     )
-    dataset_parser.add_argument(
+    bulk_parser.add_argument(
         "--kb-only",
         action="store_true",
         help="Use only existing knowledge base data (don't search for new papers)",
     )
-    dataset_parser.add_argument(
+    bulk_parser.add_argument(
         "--skip-extraction-eval",
         action="store_true",
         help="Skip quality evaluation during proposition extraction (faster, accepts all propositions). Only applies when searching for new papers.",
     )
-    dataset_parser.add_argument(
+    bulk_parser.add_argument(
         "--use-all-propositions",
         action="store_true",
         help="Use all propositions instead of only quality ones during claim verification. Useful with --kb-only when quality evaluation was skipped during extraction.",
     )
-    dataset_parser.add_argument(
+    bulk_parser.add_argument(
         "--max-papers",
         type=int,
         default=10,
         help="Maximum number of papers to search for (default: 10)",
     )
-    dataset_parser.add_argument("--max-items", type=int, help="Max items from the dataset to verify.")
-    dataset_parser.add_argument(
+    bulk_parser.add_argument("--max-items", type=int, help="Max items from the dataset to verify.")
+    bulk_parser.add_argument(
         "--resume",
         "-r",
         action="store_true",
-        help="Resume a previous dataset verification pipeline. Requires --output to be the output of a previous interrupted run.",
+        help="Resume a previous verification run. Requires --output pointing to previous output.",
     )
 
     ## Query Parser
@@ -151,18 +147,29 @@ def main():
 
     args = parser.parse_args()
 
+    from scverifier.utils.logging_config import configure_logging
+
     logs_dir = Path("logs")
     logs_dir.mkdir(parents=True, exist_ok=True)
     # cofigures logging for the entire script, pipelines can log to the same file with different loggers
-    configure_logging(verbose=args.verbose, log_file=logs_dir / f"{args.command}.log")
+    if args.verbose:
+        verbose = 1
+    elif args.quiet:
+        verbose = -1
+    else:
+        verbose = 0
+    configure_logging(verbose=verbose, log_file=logs_dir / f"{args.command}.log")
 
-    if args.db:
-        Config.DB_NAME = str(args.db)
+    from scverifier.config.settings import Config
+
+    if args.kdb:
+        Config.DB_NAME = str(args.kdb)
 
     print("\n" + "=" * 70)
-    print(f"Doing {args.command.capitalize}")
-    print(f"\tModel: {Config.LLM_MODEL}")
-    print(f"\tKnowledge Base: {Config.DB_NAME}")
+    print(f"Doing {args.command.capitalize()}")
+    if args.command != "benchmark":
+        print(f"\tModel: {Config.LLM_MODEL}")
+        print(f"\tKnowledge Base: {Config.DB_NAME}")
     print("=" * 70)
 
     if args.command == "verify":
@@ -200,33 +207,34 @@ def main():
 
         uvicorn.run("scverifier.webapp.main:app", host=args.host, port=args.port, reload=True)
 
-    elif args.command == "dataset":
-        from scverifier.core.dataset_verifier import DatasetVerifier
+    elif args.command == "bulk":
+        from scverifier.core.bulk_verifier import BulkVerifier
 
         print("\n" + "=" * 70)
-        print(f" {'Resuming' if args.resume else 'Starting'} Dataset Verification")
-        print(f" Dataset: {args.file}")
+        print(f" {'Resuming' if args.resume else 'Starting'} Bulk Verification")
+        print(f" File: {args.file}")
         print("=" * 70)
 
-        d_verifier = DatasetVerifier(
+        bulk = BulkVerifier(
             dataset_path=args.file,
             output_path=args.output,
             claim_column=args.claim_col,
             id_column=args.id_col,
             method=args.method,
         )
-        d_verifier.run(
+        bulk.run(
             kb_only=args.kb_only,
             skip_extraction_eval=args.skip_extraction_eval,
             use_all_propositions=args.use_all_propositions,
             max_papers=args.max_papers,
             max_items=args.max_items,
             resume=args.resume,
+            pbar=True if args.quiet else False,
         )
 
         print("=" * 70)
         print("Verification done.")
-        print(f" Saving at {d_verifier.output_path}")
+        print(f" Saving at {bulk.output_path}")
         print("=" * 70)
 
     elif args.command == "query":
@@ -237,7 +245,9 @@ def main():
             print("Error: --config is required for the benchmark command")
             sys.exit(1)
 
-        benchmark_pipeline = BenchmarkPipeline(Path(args.config))
+        from scverifier.pipelines.benchmark_pipeline import BenchmarkPipeline
+
+        benchmark_pipeline = BenchmarkPipeline(Path(args.config), pbar=True if args.quiet else False)
 
         if args.dry_run:
             benchmark_pipeline.dry_run()

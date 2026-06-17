@@ -3,10 +3,10 @@
 .vscode
 .ruff_cache
 pytest_output*
-experiments/*
-
 
 # data
+experiments/results/**
+experiments/.counter
 benchmark_results/*
 data/*
 !data/kb_all/

@@ -48,7 +48,7 @@ Config files define model, knowledge base, features, and benchmark datasets. See
 
 ### Environment Setup
 
-Create a `.env` file in the project root. The provider is auto-detected: set `GEMINI_API_KEY` for Gemini or `AZURE_API_KEY` (+ endpoint/deployment) for Azure OpenAI. No `LLM_PROVIDER` flag needed.
+Create a `.env` file in the project root. The provider is auto-detected: set `GEMINI_API_KEY` for Gemini or `AZURE_API_KEY` (+ endpoint/deployment) for Azure OpenAI.
 
 ```bash
 # --- LLM Provider (pick one) ---

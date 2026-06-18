@@ -1,14 +1,27 @@
 """SciFact benchmark implementation.
 
 Loads and manages the SciFact dataset for claim verification benchmarking.
+Auto-downloads from the official SciFact S3 bucket when data is missing.
 """
 
+import io
 import json
+import logging
+import tarfile
 import tempfile
 from pathlib import Path
 from typing import Optional, List
 
+import requests
+from tqdm import tqdm
+
 from scverifier.core.benchmarking.base import Benchmark, BenchmarkItem, VerificationMethod
+
+SCIFACT_DATA_DIR = Path("data/scifact_data")
+SCIFACT_URL = "https://scifact.s3-us-west-2.amazonaws.com/release/latest/data.tar.gz"
+_REQUIRED_FILES = ["claims_train.jsonl", "claims_dev.jsonl", "claims_test.jsonl"]
+
+logger = logging.getLogger(__name__)
 
 
 class SciFact(Benchmark):
@@ -33,6 +46,8 @@ class SciFact(Benchmark):
         """
         super().__init__(name="SciFact")
 
+        self._use_default_path = claims_file is None
+
         # If claims_file is provided, use it directly
         if claims_file:
             self.claims_file = Path(claims_file)
@@ -40,7 +55,7 @@ class SciFact(Benchmark):
         elif split:
             if split not in ["train", "dev", "test"]:
                 raise ValueError(f"Invalid split '{split}'. Must be 'train', 'dev', 'test', or None")
-            self.claims_file = Path(f"data/scifact_data/claims_{split}.jsonl")
+            self.claims_file = SCIFACT_DATA_DIR / f"claims_{split}.jsonl"
         # Otherwise, combine all files
         else:
             self.claims_file = None
@@ -48,6 +63,35 @@ class SciFact(Benchmark):
         self.split = split
         self.verification_method = verification_method
         self._temp_combined_file = None
+
+    def _ensure_data_downloaded(self) -> None:
+        if SCIFACT_DATA_DIR.exists():
+            missing = [f for f in _REQUIRED_FILES if not (SCIFACT_DATA_DIR / f).exists()]
+            if not missing:
+                return
+
+        SCIFACT_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+        print("SciFact data not found. Downloading...")
+        response = requests.get(SCIFACT_URL, stream=True)
+        response.raise_for_status()
+
+        total = int(response.headers.get("content-length", 0))
+        buf = io.BytesIO()
+        with tqdm(total=total, unit="B", unit_scale=True, desc="Downloading") as pbar:
+            for chunk in response.iter_content(chunk_size=8192):
+                buf.write(chunk)
+                pbar.update(len(chunk))
+
+        buf.seek(0)
+        print("Extracting...")
+        with tarfile.open(fileobj=buf, mode="r:gz") as tar:
+            for member in tar.getmembers():
+                if member.isfile() and any(member.name == f"data/{f}" for f in [*_REQUIRED_FILES, "corpus.jsonl"]):
+                    member.name = f"scifact_data/{member.name[5:]}"
+                    tar.extract(member, path="data")
+
+        print(f"SciFact data downloaded and extracted to {SCIFACT_DATA_DIR}")
 
     def _combine_all_claims_files(self) -> Path:
         """Combine all SciFact claim files (dev, test, train) into one temporary file.
@@ -103,7 +147,9 @@ class SciFact(Benchmark):
         Returns:
             List of BenchmarkItem objects
         """
-        # If no specific file provided, combine all files
+        if self._use_default_path:
+            self._ensure_data_downloaded()
+
         if self.claims_file is None:
             self.claims_file = self._combine_all_claims_files()
 

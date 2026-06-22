@@ -28,9 +28,8 @@ class Config:
             AZURE_DEPLOYMENT_NAMES,
         )
     )
-    AZURE_API_VERSION: str = (
-        "2024-12-01-preview"  # "2025-04-14"  # Default API version for Azure OpenAI (update as needed)
-    )
+    # API version for Azure OpenAI
+    AZURE_API_VERSION: str = os.getenv("AZURE_API_VERSION")
 
     # Gemini APIs
     GEMINI_API_KEY: str | None = os.getenv("GEMINI_API_KEY")
@@ -46,6 +45,7 @@ class Config:
         "gpt41-mini"  # "gemini-2.5-flash"  # "gemini-2.5-flash-lite"  # "gemini-2.0-flash-lite" # 2.0 flash lite is older but slightly cheaper
     )
     EMBEDDING_MODEL: str = "nomic-embed-text:v1.5"
+    RERANK_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     BATCH_LLM_MODEL: str = (
         "gemini-2.0-flash-lite"  # "models/gemini-2.5-flash-lite-preview-09-2025" #"models/gemini-2.0-flash-lite"
     )
@@ -89,8 +89,12 @@ class Config:
     # Batch processing settings
     BATCH_FILE_SPLIT_LIMIT: int = 2000  # Maximum number of requests per batch file (split if exceeded)
 
+    # Override at runtime from new config.yaml with wanted features to test
     FEATURES: set[str] = set()
-    KNOWN_FEAUTURES: set[str] = set()
+    # add to this every time a new feature is implemented with guards (if cond for testing)
+    KNOWN_FEAUTURES: set[str] = {
+        "reranking",
+    }
 
     # TODO: might be redudndant with environment variable loading at the top - consider consolidating
     # Might only be needed if other libs require the keys to be a differnt name

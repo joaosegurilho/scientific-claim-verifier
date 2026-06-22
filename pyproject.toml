@@ -65,6 +65,10 @@ dev = [
     "pre-commit",
 ]
 
+feat = [
+    "sentence-transformers"
+]
+
 [project.urls]
 Homepage = "https://github.com/Exemocaro/Scientific-Claim-Verifier"
 Repository = "https://github.com/Exemocaro/Scientific-Claim-Verifier"

@@ -6,14 +6,14 @@ RetrievalSystem handles the conversion to/from LangChain Documents internally.
 
 import logging
 import os
-from typing import List, Dict, Any, Optional
 import time
+from typing import Any, Dict, List, Optional
 
-from scverifier.data.models import Paper, Chunk, Proposition
-from scverifier.data.database import PaperDatabase
-from scverifier.utils import id_generator
-from scverifier.core.retrieval.retrieval_system import RetrievalSystem
 from scverifier.config.settings import Config
+from scverifier.core.retrieval.retrieval_system import RetrievalSystem
+from scverifier.data.database import PaperDatabase
+from scverifier.data.models import Chunk, Paper, Proposition
+from scverifier.utils import id_generator
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +135,11 @@ class KnowledgeBase:
             t1 = time.time()
             self.add_chunks_to_vectorstore(paper.chunks, verbose=verbose)
             if verbose:
-                logger.debug("[2/3] Added %d chunks to vectorstore (%.3fs)", len(paper.chunks), time.time() - t1)
+                logger.debug(
+                    "[2/3] Added %d chunks to vectorstore (%.3fs)",
+                    len(paper.chunks),
+                    time.time() - t1,
+                )
         elif verbose:
             logger.debug("[2/3] No chunks to add")
 
@@ -144,7 +148,9 @@ class KnowledgeBase:
             self.add_propositions_to_vectorstore(paper.propositions, verbose=verbose)
             if verbose:
                 logger.debug(
-                    "[3/3] Added %d propositions to vectorstore (%.3fs)", len(paper.propositions), time.time() - t2
+                    "[3/3] Added %d propositions to vectorstore (%.3fs)",
+                    len(paper.propositions),
+                    time.time() - t2,
                 )
         elif verbose:
             logger.debug("[3/3] No propositions to add")
@@ -281,6 +287,9 @@ class KnowledgeBase:
         """
         # RetrievalSystem now returns domain objects directly
         return self.retrieval_system.query_propositions(query, top_k)
+
+    def rerank_propositions(self, query: str, propositions: List[Proposition], top_k: int) -> List[Proposition]:
+        return self.retrieval_system.rerank_propositions(query=query, propositions=propositions, top_k=top_k)
 
     def search_chunks(self, query: str, top_k: Optional[int] = None) -> List[Chunk]:
         """Search for relevant document chunks.
@@ -480,7 +489,7 @@ class KnowledgeBase:
         print(f"Total Chunks: {stats['chunks']}")
         print(f"Total Propositions: {stats['propositions_total']}")
         print(f"Quality Propositions: {stats['propositions_quality']}")
-        print(f"Success Rate: {stats['overall_success_rate']*100:.1f}%")
+        print(f"Success Rate: {stats['overall_success_rate'] * 100:.1f}%")
         print(f"Avg Propositions/Paper: {stats['avg_propositions_per_paper']:.1f}")
         print(f"Avg Quality Props/Paper: {stats['avg_quality_per_paper']:.1f}")
         print("\nVector Stores:")
@@ -605,7 +614,10 @@ class KnowledgeBase:
 
         # Reconstruct chunks from FAISS
         if self.retrieval_system.chunk_vectorstore:
-            for doc_id, doc in self.retrieval_system.chunk_vectorstore.docstore._dict.items():
+            for (
+                doc_id,
+                doc,
+            ) in self.retrieval_system.chunk_vectorstore.docstore._dict.items():
                 chunk = Chunk.from_langchain_document(doc)
                 paper_id = chunk.paper_id
                 if paper_id in self.papers:
@@ -613,7 +625,10 @@ class KnowledgeBase:
 
         # Reconstruct propositions from FAISS
         if self.retrieval_system.proposition_vectorstore:
-            for doc_id, doc in self.retrieval_system.proposition_vectorstore.docstore._dict.items():
+            for (
+                doc_id,
+                doc,
+            ) in self.retrieval_system.proposition_vectorstore.docstore._dict.items():
                 prop = Proposition.from_langchain_document(doc)
                 paper_id = prop.paper_id
                 if paper_id in self.papers:

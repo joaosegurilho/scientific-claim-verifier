@@ -16,6 +16,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_ollama import OllamaEmbeddings
 
 from scverifier.config.settings import Config
+from scverifier.core.retrieval.reranker import CrossEncoderReranker
 from scverifier.data.models import Chunk, Proposition
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ class RetrievalSystem:
 
     def __init__(self):
         self.embedding_model = OllamaEmbeddings(model=Config.EMBEDDING_MODEL)
+        self.reranker = CrossEncoderReranker()
 
         # Vector stores (internal - work with Documents)
         self.proposition_vectorstore = None
@@ -89,7 +91,10 @@ class RetrievalSystem:
                     break
 
         if verbose:
-            logger.info("Created proposition vector store with %d propositions", len(propositions))
+            logger.info(
+                "Created proposition vector store with %d propositions",
+                len(propositions),
+            )
 
     def create_chunk_vectorstore(self, chunks: List[Chunk], verbose: bool = True):
         """Create a new vector store from document chunks.
@@ -241,13 +246,19 @@ class RetrievalSystem:
                 invalid_ids = [pid for pid in prop_ids if pid not in existing_ids]
 
                 if invalid_ids and verbose:
-                    logger.warning("%d proposition IDs not found in vectorstore (stale mapping)", len(invalid_ids))
+                    logger.warning(
+                        "%d proposition IDs not found in vectorstore (stale mapping)",
+                        len(invalid_ids),
+                    )
 
                 if valid_ids:
                     try:
                         self.proposition_vectorstore.delete(valid_ids)
                         if verbose:
-                            logger.info("Deleted %d propositions from vectorstore", len(valid_ids))
+                            logger.info(
+                                "Deleted %d propositions from vectorstore",
+                                len(valid_ids),
+                            )
                     except Exception as e:
                         if verbose:
                             logger.warning("Deletion failed: %s", e)
@@ -273,7 +284,10 @@ class RetrievalSystem:
                 invalid_ids = [cid for cid in chunk_ids if cid not in existing_ids]
 
                 if invalid_ids and verbose:
-                    logger.warning("%d chunk IDs not found in vectorstore (stale mapping)", len(invalid_ids))
+                    logger.warning(
+                        "%d chunk IDs not found in vectorstore (stale mapping)",
+                        len(invalid_ids),
+                    )
 
                 if valid_ids:
                     try:
@@ -371,6 +385,11 @@ class RetrievalSystem:
             results.append((prop, similarity))
 
         return results
+
+    def rerank_propositions(self, query: str, propositions: List[Proposition], top_k: int = 15) -> List[Proposition]:
+        if self.reranker is None:
+            return propositions
+        return self.reranker.rerank(query=query, propositions=propositions, top_k=top_k)
 
     # def query_chunks(self, query: str, top_k: Optional[int] = None) -> List[Chunk]:
     #     """Query the chunk-based vector store for similar documents.

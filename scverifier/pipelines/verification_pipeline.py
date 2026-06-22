@@ -403,32 +403,10 @@ class VerificationPipeline:
 
         logger.info("  Total unique propositions: %d", len(all_retrieved))
 
-        # # Alternative approach: distribute max_propositions across ALL queries
-        # num_queries = len(search_queries)
-        # per_query_limit = max(1, max_propositions // num_queries)
-        # print(f"   • Distributing ~{per_query_limit} propositions per query (total cap {max_propositions})")
-
-        # for query_type, query in search_queries.items():
-        #     retrieved = self.kb.search_propositions(query, top_k=per_query_limit)
-        #     if quality_claims:
-        #         retrieved = [p for p in retrieved if p.is_high_quality()]
-
-        #     # Filter by abstract-only if requested
-        #     if use_abstract_only:
-        #         retrieved = self._filter_abstract_propositions(retrieved)
-
-        #     # Deduplicate by content
-        #     for prop in retrieved:
-        #         if prop.text not in seen_contents:
-        #             seen_contents.add(prop.text)
-        #             all_retrieved.append(prop)
-        #             # Enforce global cap
-        #             if len(all_retrieved) >= max_propositions:
-        #                 break
-
-        #     print(f"   • Retrieved {len(retrieved)} propositions from {query_type} query")
-
-        # print(f"   • Total unique propositions (capped to {max_propositions}): {len(all_retrieved)}")
+        rerank_enabled = "reranking" in Config.FEATURES
+        if rerank_enabled:
+            all_retrieved = self.kb.rerank_propositions(query=claim, propositions=all_retrieved, top_k=15)
+            logger.info("\tReranked and filter to %d propositions", len(all_retrieved))
 
         # Diversify propositions (limit per paper for source diversity)
         retrieved_props = self._diversify_propositions(all_retrieved, max_per_paper=max_props_per_paper)

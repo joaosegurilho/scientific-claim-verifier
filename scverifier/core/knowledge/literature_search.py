@@ -47,7 +47,8 @@ class LiteratureSearch:
             claim: Original scientific claim
 
         Returns:
-            Dictionary with 'original', 'opposite', and 'neutral' queries
+            Dictionary with 'original', 'opposite', and 'neutral' queries.
+            Possibly with added (P)ICO variants.
         """
         llm = Config.with_llm(
             # model=Config.LLM_MODEL,
@@ -55,7 +56,33 @@ class LiteratureSearch:
             timeout=Config.LLM_TIMEOUT,
         )
 
-        prompt = f"""You are a scientific literature search expert. Given this scientific claim: "{claim}"
+        prompt = (
+            self._generate_basic_queries(claim)
+            if "pico_query" not in Config.FEATURES
+            else self._generate_pico_queries(claim)
+        )
+
+        response = Config.retry_llm_call(lambda: llm.invoke(prompt))
+        text = response.content
+
+        # Parse the response
+        queries = {"original": claim}
+
+        for line in text.strip().split("\n"):
+            if ":" in line:
+                variant, phrase = line.split(":", 1)
+                queries[variant.strip().lower()] = phrase.strip()
+
+        # for line in text.strip().split("\n"):
+        #     if line.startswith("OPPOSITE:"):
+        #         queries["opposite"] = line.replace("OPPOSITE:", "").strip()
+        #     elif line.startswith("NEUTRAL:"):
+        #         queries["neutral"] = line.replace("NEUTRAL:", "").strip()
+
+        return queries
+
+    def _generate_basic_queries(claim: str) -> str:
+        return f"""You are a scientific literature search expert. Given this scientific claim: "{claim}"
 
 Generate two related claims:
 
@@ -78,19 +105,47 @@ NEUTRAL: Studies explore green tea, cognition, neuroprotection, brain health, an
 
 Now generate for the given claim:"""
 
-        response = Config.retry_llm_call(lambda: llm.invoke(prompt))
-        text = response.content
+    def _generate_pico_queries(claim: str) -> str:
+        return f"""You are a scientific literature search expert. Given this scientific claim: "{claim}"
 
-        # Parse the response
-        queries = {"original": claim}
+Generate five related claims:
 
-        for line in text.strip().split("\n"):
-            if line.startswith("OPPOSITE:"):
-                queries["opposite"] = line.replace("OPPOSITE:", "").strip()
-            elif line.startswith("NEUTRAL:"):
-                queries["neutral"] = line.replace("NEUTRAL:", "").strip()
+1. OPPOSITE: A statement that contradicts the original claim. 
+   Use natural phrasing (e.g., "has no effect", "is not linked to", "may worsen", "fails to", "increases").
+   Keep it concise and scientifically plausible.
 
-        return queries
+2. NEUTRAL: A statement that is related but does not agree or disagree. 
+   Include core and related keywords that could appear in scientific papers on the same topic 
+   (e.g., synonyms, broader or adjacent concepts).
+
+3. INTERVENTION: A claim phrased as a mechanism or intervention question.
+   Focus on how or why the intervention works (e.g., "the mechanism of", "how X affects Y", "the role of").
+   Include the biological, chemical, or causal pathway if applicable.
+
+4. COMPARISON: A claim rephrased to emphasize the comparison or control group.
+   Frame it as a comparative statement (e.g., "outperforms", "compared to", "versus", "is more effective than").
+   Explicitly name the comparator where possible (e.g., placebo, standard treatment).
+
+5. OUTCOME: A claim rephrased to emphasize the measured outcome or effect.
+   Use natural phrasing that foregrounds the result (e.g., "leads to", "improves", "reduces", "is associated with").
+   Keep it concise and scientifically precise.
+
+Respond in this exact format:
+OPPOSITE: <text>
+NEUTRAL: <text>
+INTERVENTION: <text>
+COMPARISON: <text>
+OUTCOME: <text>
+
+Example:
+Claim: "Green tea improves memory."
+OPPOSITE: Green tea shows no significant effect on memory function.
+NEUTRAL: Studies explore green tea, cognition, neuroprotection, brain health, and memory-related biomarkers.
+INTERVENTION: The mechanism of green tea polyphenols on neuronal function.
+COMPARISON: Green tea outperforms placebo in memory retention tasks.
+OUTCOME: Green tea improves cognitive function and memory performance.
+
+Now generate for the given claim:"""
 
     def generate_paper_titles(self, search_queries: Dict[str, str], temp: float = 0.0) -> List[str]:
         """Use LLM to generate specific paper titles based on search queries.
@@ -108,11 +163,22 @@ Now generate for the given claim:"""
             timeout=Config.LLM_TIMEOUT,
         )
 
+        pico_addition = (
+            ""
+            if "pico_query" not in Config.FEATURES
+            else f"""
+INTERVENTION: {search_queries.get("intervention", "")}
+COMPARISON: {search_queries.get("comparison", "")}
+OUTCOME: {search_queries.get("outcome", "")}
+"""
+        )
+
         prompt = f"""You are a scientific literature search expert. Given these research queries:
 
 ORIGINAL: {search_queries.get("original", "")}
 OPPOSITE: {search_queries.get("opposite", "")}  
 NEUTRAL: {search_queries.get("neutral", "")}
+{pico_addition}
 
 Generate 10 SPECIFIC paper titles that would help find relevant research papers.
 Return ONLY the titles, one per line, no numbering.
@@ -129,11 +195,20 @@ Now generate titles for the queries above:"""
 
         # Fallback if LLM fails
         if not titles:
+            pico_fallback = (
+                []
+                if "pico_query" not in Config.FEATURES
+                else [
+                    search_queries.get("intervention", ""),
+                    search_queries.get("comparison", ""),
+                    search_queries.get("outcome", ""),
+                ]
+            )
             return [
                 search_queries.get("original", ""),
                 search_queries.get("opposite", ""),
                 search_queries.get("neutral", ""),
-            ]
+            ] + pico_fallback
 
         return titles
 
@@ -286,7 +361,10 @@ Now generate titles for the queries above:"""
 
         if verbose:
             logger.info(
-                "Found %d unique papers total (API calls: %d/%d).", len(all_papers), api_call_count, max_api_calls
+                "Found %d unique papers total (API calls: %d/%d).",
+                len(all_papers),
+                api_call_count,
+                max_api_calls,
             )
             if api_call_count >= max_api_calls:
                 logger.info("Search stopped: API call limit reached (%d calls).", max_api_calls)

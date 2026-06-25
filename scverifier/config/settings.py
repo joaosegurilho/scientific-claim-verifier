@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from langchain.chat_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import AzureChatOpenAI
+from openai import LengthFinishReasonError
 
 # Load environment variables
 load_dotenv()
@@ -131,6 +132,8 @@ class Config:
         for attempt in range(max_retries):
             try:
                 return func()
+            except LengthFinishReasonError:
+                raise
             except Exception as e:
                 if attempt == max_retries - 1:
                     raise e
@@ -142,7 +145,7 @@ class Config:
     def with_llm(
         cls,
         temperature: int = 0,
-        max_tokens: int = 6000,
+        max_tokens: int = 8000,
         timeout: int = 120,
         fallback: bool = False,
         **kwargs,

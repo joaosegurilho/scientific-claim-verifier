@@ -103,6 +103,7 @@ class PropositionGenerator:
             4. **Include Precise Details**: Include relevant dates, quantities, locations, or qualifiers that make the fact specific
             5. **Avoid Meta-Commentary**: Do not describe the document itself (e.g., "The study found...", "Results showed...", "The paper discusses...")
             6. **Be Factually Verifiable**: The statement should be something that could be independently verified or checked
+            7. **Limit Quantity**: Generate at most 25 propositions per chunk. Prioritize the most specific and informative facts. Quality over quantity.
 
             AVOID THESE TYPES OF VAGUE STATEMENTS:
             - "The research showed significant results"

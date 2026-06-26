@@ -95,6 +95,7 @@ class Config:
     # add to this every time a new feature is implemented with guards (if cond for testing)
     KNOWN_FEAUTURES: set[str] = {
         "reranking",
+        "pico_query",
     }
 
     # TODO: might be redudndant with environment variable loading at the top - consider consolidating

@@ -12,10 +12,21 @@ Paper: "MSVEC: A Multidomain Testing Dataset for Scientific Claim Verification" 
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import Optional, List
 
+import requests
+from tqdm import tqdm
+
 from scverifier.core.benchmarking.base import Benchmark, BenchmarkItem, VerificationMethod
+
+MSVEC_DATA_DIR = Path("data/msvec_data")
+MSVEC_CLAIMS_URL = "https://raw.githubusercontent.com/lamps-lab/msvec/main/msvec.json"
+MSVEC_CORPUS_URL = "https://raw.githubusercontent.com/lamps-lab/msvec/main/corpus.jsonl"
+_REQUIRED_FILES = ["corpus.jsonl"]
+
+logger = logging.getLogger(__name__)
 
 
 class MSVEC(Benchmark):
@@ -43,13 +54,45 @@ class MSVEC(Benchmark):
         """
         super().__init__(name="MSVEC")
 
+        self._use_default_path = data_dir is None
+
         if data_dir:
             self.data_dir = Path(data_dir)
         else:
-            # Default location relative to project root
-            self.data_dir = Path("data/msvec_data")
+            self.data_dir = MSVEC_DATA_DIR
 
         self.verification_method = verification_method
+
+    def _ensure_data_downloaded(self) -> None:
+        if MSVEC_DATA_DIR.exists():
+            missing = [f for f in _REQUIRED_FILES if not (MSVEC_DATA_DIR / f).exists()]
+            if not missing:
+                return
+
+        MSVEC_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+        files_to_download = [
+            ("corpus.jsonl", MSVEC_CORPUS_URL),
+            ("msvec.json", MSVEC_CLAIMS_URL),
+        ]
+
+        for filename, url in files_to_download:
+            dest = MSVEC_DATA_DIR / filename
+            if dest.exists():
+                continue
+
+            print(f"Downloading MSVEC {filename}...")
+            response = requests.get(url, stream=True)
+            response.raise_for_status()
+
+            total = int(response.headers.get("content-length", 0))
+            with open(dest, "wb") as f:
+                with tqdm(total=total, unit="B", unit_scale=True, desc=filename) as pbar:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                        pbar.update(len(chunk))
+
+        print(f"MSVEC data downloaded to {MSVEC_DATA_DIR}")
 
     def load(self, max_items: Optional[int] = None) -> List[BenchmarkItem]:
         """Load MSVEC claims.
@@ -68,6 +111,9 @@ class MSVEC(Benchmark):
         Raises:
             FileNotFoundError: If data directory or claims file not found
         """
+        if self._use_default_path:
+            self._ensure_data_downloaded()
+
         if not self.data_dir.exists():
             raise FileNotFoundError(
                 f"MSVEC data directory not found at {self.data_dir}. "

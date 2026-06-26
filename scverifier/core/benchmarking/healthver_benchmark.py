@@ -51,7 +51,7 @@ class HealthVer(Benchmark):
             )
 
         # Load the dataset
-        dataset = load_dataset("dwadden/healthver_entailment")
+        dataset = load_dataset("dwadden/healthver_entailment", trust_remote_code=True)
 
         # Get the specified split
         if split not in dataset:

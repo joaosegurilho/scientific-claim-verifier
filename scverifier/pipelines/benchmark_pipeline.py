@@ -94,7 +94,10 @@ class BenchmarkPipeline:
             else:
                 bm = benchmark_cls(verification_method=vm)
 
-            bm.load(max_items=1)
+            if benchmark_item.dataset == "healthver":
+                bm.load(max_items=1, split=benchmark_item.split or "test")
+            else:
+                bm.load(max_items=1)
             return "✓ data available"
 
         except FileNotFoundError as e:

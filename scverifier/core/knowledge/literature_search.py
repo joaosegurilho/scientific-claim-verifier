@@ -81,6 +81,7 @@ class LiteratureSearch:
 
         return queries
 
+    @staticmethod
     def _generate_basic_queries(claim: str) -> str:
         return f"""You are a scientific literature search expert. Given this scientific claim: "{claim}"
 
@@ -105,6 +106,7 @@ NEUTRAL: Studies explore green tea, cognition, neuroprotection, brain health, an
 
 Now generate for the given claim:"""
 
+    @staticmethod
     def _generate_pico_queries(claim: str) -> str:
         return f"""You are a scientific literature search expert. Given this scientific claim: "{claim}"
 

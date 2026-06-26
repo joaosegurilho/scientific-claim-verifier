@@ -30,7 +30,7 @@ class HealthVer(Benchmark):
         super().__init__(name="HealthVer")
         self.verification_method = verification_method
 
-    def load(self, max_items: Optional[int] = None, split: str = "validation") -> List[BenchmarkItem]:
+    def load(self, max_items: Optional[int] = None, split: str = "test") -> List[BenchmarkItem]:
         """Load HealthVer claims.
 
         Args:

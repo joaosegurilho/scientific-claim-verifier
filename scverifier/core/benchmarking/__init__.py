@@ -59,6 +59,8 @@ def get_benchmark(
         benchmark = benchmark_cls(split=split, verification_method=verification_method)
     elif dataset == "healthver":
         benchmark = benchmark_cls(verification_method=verification_method)
+        benchmark.load(max_items=None, split=split or "test")
+        return benchmark
     else:
         benchmark = benchmark_cls(verification_method=verification_method)
 

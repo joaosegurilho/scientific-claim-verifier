@@ -1,7 +1,13 @@
-"""Generate ablation study plots comparing experiments with different feature sets.
+"""Generate ablation/comparison plots across features, models, methods, and datasets.
+
+Generates 4 figures:
+  1. feature_ablation  — vary features, fix (dataset, method, llm_model)
+  2. model_comparison  — vary llm_model, fix (dataset, method, features)
+  3. method_comparison — vary method, fix (dataset, llm_model, features)
+  4. dataset_comparison — vary dataset, fix (method, llm_model, features)
 
 Usage:
-    python experiments/analysis/ablation_plot.py [--output ablation.png] [--dataset scifact]
+    python experiments/analysis/ablation_plot.py [--output base_name.png] [--dataset scifact]
 """
 
 import argparse
@@ -15,9 +21,14 @@ import numpy as np
 import yaml
 
 
+def format_features(features: frozenset) -> str:
+    if not features:
+        return "no-features"
+    return "+".join(sorted(features))
+
+
 def load_experiment_metrics(exp_dir: Path) -> list[dict]:
     results = []
-
     config_file = exp_dir / "config.yaml"
     if not config_file.exists():
         return results
@@ -38,6 +49,7 @@ def load_experiment_metrics(exp_dir: Path) -> list[dict]:
         except (json.JSONDecodeError, FileNotFoundError):
             continue
         eval_metrics = metrics.get("evaluation_metrics") or {}
+        meta = metrics.get("model_metadata") or {}
         accuracy = eval_metrics.get("accuracy", metrics.get("accuracy"))
         macro_f1 = eval_metrics.get("macro_f1")
         if accuracy is None:
@@ -46,6 +58,8 @@ def load_experiment_metrics(exp_dir: Path) -> list[dict]:
             {
                 "name": exp_name,
                 "dataset": dataset,
+                "method": metrics.get("method", dataset_method.split("_", 1)[1] if "_" in dataset_method else "N/A"),
+                "llm_model": meta.get("llm_model", "N/A"),
                 "features": features,
                 "accuracy": accuracy,
                 "macro_f1": macro_f1,
@@ -54,29 +68,45 @@ def load_experiment_metrics(exp_dir: Path) -> list[dict]:
     return results
 
 
-def find_baseline(experiments: list[dict]) -> int:
-    for i, r in enumerate(experiments):
-        if not r["features"]:
-            return i
+def group_experiments(experiments: list[dict], keys: tuple[str, ...]) -> dict:
+    groups = defaultdict(list)
+    for exp in experiments:
+        key = tuple(exp[k] for k in keys)
+        groups[key].append(exp)
+    return dict(groups)
+
+
+def find_baseline_idx(experiments: list[dict], varying_prop: str) -> int | None:
+    if varying_prop == "features":
+        for i, r in enumerate(experiments):
+            if not r["features"]:
+                return i
+        return None
     return 0
 
 
-def _compute_deltas(experiments: list[dict]):
-    baseline_idx = find_baseline(experiments)
+def _key_sort_value(varying_prop: str):
+    """Return a sort key function for experiments by the varying property."""
+    if varying_prop == "features":
+        return lambda e: format_features(e["features"])
+    return lambda e: str(e[varying_prop])
+
+
+def compute_deltas(experiments: list[dict], baseline_idx: int, varying_prop: str):
     baseline = experiments[baseline_idx]
     baseline_acc = baseline["accuracy"]
     baseline_f1 = baseline["macro_f1"]
 
     others = [r for i, r in enumerate(experiments) if i != baseline_idx]
     if not others:
-        return None, None, None
+        return None, None, None, None
 
+    others.sort(key=_key_sort_value(varying_prop))
     labels = []
     acc_deltas = []
     f1_deltas = []
     for r in others:
-        feat_label = ", ".join(sorted(r["features"])) if r["features"] else "none"
-        labels.append(f"{r['name']}\n({feat_label})")
+        labels.append(format_features(r["features"]) if varying_prop == "features" else str(r[varying_prop]))
         acc_delta = (
             (r["accuracy"] - baseline_acc) * 100 if r["accuracy"] is not None and baseline_acc is not None else 0
         )
@@ -84,7 +114,8 @@ def _compute_deltas(experiments: list[dict]):
         acc_deltas.append(acc_delta)
         f1_deltas.append(f1_delta)
 
-    return labels, acc_deltas, f1_deltas
+    baseline_desc = format_features(baseline["features"]) if varying_prop == "features" else str(baseline[varying_prop])
+    return labels, acc_deltas, f1_deltas, baseline_desc
 
 
 def _add_labels(ax, bars):
@@ -102,67 +133,113 @@ def _add_labels(ax, bars):
         )
 
 
-def _make_single_plot(ax, experiments: list[dict], dataset: str, baseline_name: str):
-    labels, acc_deltas, f1_deltas = _compute_deltas(experiments)
+def _display_key(key: tuple) -> str:
+    parts = []
+    for v in key:
+        if isinstance(v, frozenset):
+            parts.append(format_features(v))
+        else:
+            parts.append(str(v))
+    return " / ".join(parts)
+
+
+def plot_comparison(ax, experiments, baseline_idx, varying_prop, title):
+    labels, acc_deltas, f1_deltas, baseline_desc = compute_deltas(experiments, baseline_idx, varying_prop)
     if labels is None:
-        ax.text(0.5, 0.5, "No non-baseline experiments", ha="center", va="center", transform=ax.transAxes)
+        ax.text(
+            0.5,
+            0.5,
+            "No non-baseline experiments",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+        )
         return
 
     x = np.arange(len(labels))
     width = 0.35
-    bars1 = ax.bar(x - width / 2, acc_deltas, width, label="Accuracy Δ (pp)", color="steelblue")
-    bars2 = ax.bar(x + width / 2, f1_deltas, width, label="Macro F1 Δ (pp)", color="coral")
+    bars1 = ax.bar(x - width / 2, acc_deltas, width, label="Accuracy \u0394 (pp)", color="steelblue")
+    bars2 = ax.bar(x + width / 2, f1_deltas, width, label="Macro F1 \u0394 (pp)", color="coral")
 
     ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8)
     ax.set_ylabel("Delta vs baseline (percentage points)")
-    baseline_acc = [r["accuracy"] for r in experiments if not r["features"]]
-    baseline_label = f"baseline: {baseline_name}"
-    if baseline_acc:
-        baseline_label += f" (acc={baseline_acc[0]:.2%})"
-    ax.set_title(f"{dataset} — {baseline_label}")
+
+    baseline_acc = experiments[baseline_idx]["accuracy"]
+    baseline_label = f"baseline: {baseline_desc} (acc={baseline_acc:.2%})"
+    ax.set_title(f"{title}\n{baseline_label}", fontsize=10)
     ax.set_xticks(x)
-    ax.set_xticklabels(labels, fontsize=9)
+    ax.set_xticklabels(labels, fontsize=9, rotation=45, ha="right")
     ax.grid(axis="y", alpha=0.3)
     _add_labels(ax, bars1)
     _add_labels(ax, bars2)
     ax.legend(fontsize=8)
 
 
-def make_ablation_plot(dataset_groups: dict[str, list[dict]], output_file: Path):
-    if not dataset_groups:
-        print("No results to plot.")
+def generate_figure(all_experiments, group_keys, varying_prop, filter_dataset, output_path):
+    groups = group_experiments(all_experiments, group_keys)
+
+    if filter_dataset:
+        groups = {k: [e for e in v if e["dataset"] == filter_dataset] for k, v in groups.items()}
+        groups = {k: v for k, v in groups.items() if v}
+
+    valid_groups = {}
+    for key, exps in groups.items():
+        if len(exps) < 2:
+            continue
+        values = {_key_sort_value(varying_prop)(e) for e in exps}
+        if len(values) < 2:
+            continue
+        baseline_idx = find_baseline_idx(exps, varying_prop)
+        if baseline_idx is None:
+            continue
+        valid_groups[key] = (exps, baseline_idx)
+
+    if not valid_groups:
+        print(f"No valid groups for {varying_prop} comparison → skipping {output_path}")
         return
 
-    if len(dataset_groups) == 1:
-        dataset, experiments = next(iter(dataset_groups.items()))
+    n = len(valid_groups)
+    if n == 1:
         fig, ax = plt.subplots(figsize=(10, 6))
-        _make_single_plot(ax, experiments, dataset, experiments[0]["name"])
+        axes = [ax]
     else:
-        n_datasets = len(dataset_groups)
         ncols = 2
-        nrows = (n_datasets + ncols - 1) // ncols
+        nrows = (n + ncols - 1) // ncols
         fig, axes = plt.subplots(nrows, ncols, figsize=(12, 4 * nrows))
-        axes = axes.flatten() if n_datasets > 1 else [axes]
-        for ax, (dataset, experiments) in zip(axes, sorted(dataset_groups.items())):
-            _make_single_plot(ax, experiments, dataset, experiments[0]["name"])
-        for ax in axes[n_datasets:]:
-            ax.set_visible(False)
+        axes = axes.flatten()
+
+    for ax, (key, (exps, baseline_idx)) in zip(axes, sorted(valid_groups.items())):
+        plot_comparison(ax, exps, baseline_idx, varying_prop, _display_key(key))
+
+    for ax in axes[n:]:
+        ax.set_visible(False)
 
     plt.tight_layout()
-    plt.savefig(output_file, dpi=150, bbox_inches="tight")
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close()
-    print(f"Ablation plot saved to: {output_file}")
+    print(f"Saved: {output_path}")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Plot ablation study results comparing experiments with different feature sets."
+        description="Generate ablation/comparison plots across features, models, methods, and datasets."
     )
-    parser.add_argument("--output", "-o", type=Path, default=None, help="Path to output image file.")
-    parser.add_argument("--dataset", type=str, default=None, help="Only plot results for this dataset (e.g. scifact).")
+    parser.add_argument("--output", "-o", type=Path, default=None, help="Base path for output images.")
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default=None,
+        help="Only plot results for this dataset (e.g. scifact).",
+    )
+    parser.add_argument(
+        "--exp-dir",
+        type=str,
+        default=None,
+        help="Alternative experiments folder path.",
+    )
     args = parser.parse_args()
 
-    results_dir = Path("experiments/results")
+    results_dir = Path(args.exp_dir) if args.exp_dir else Path("experiments/results")
     if not results_dir.exists():
         print("No experiments/results/ directory found.")
         return
@@ -172,7 +249,6 @@ def main():
         key=lambda d: d.name,
     )
 
-    # Collect all results
     all_experiments = []
     for exp_dir in exp_dirs:
         all_experiments.extend(load_experiment_metrics(exp_dir))
@@ -181,25 +257,27 @@ def main():
         print("No experiment results found.")
         return
 
-    # Group by dataset, then by experiment name
-    # Within each dataset group, collect one experiment per name+features combination
-    by_dataset: dict[str, list[dict]] = defaultdict(list)
-    for exp in all_experiments:
-        dataset = exp["dataset"]
-        by_dataset[dataset].append(exp)
-
-    if args.dataset:
-        if args.dataset not in by_dataset:
-            print(f"Dataset '{args.dataset}' not found. Available: {', '.join(sorted(by_dataset))}")
-            return
-        by_dataset = {args.dataset: by_dataset[args.dataset]}
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
 
     if args.output:
-        output_file = args.output
+        base_stem = args.output.stem
+        base_suffix = args.output.suffix
+        parent_dir = args.output.parent
     else:
-        output_file = Path(f"experiments/analysis/ablation_plot_{datetime.now().strftime('%Y%m%d_%H%M')}.png")
+        base_stem = "ablation"
+        base_suffix = ".png"
+        parent_dir = Path("experiments/analysis")
 
-    make_ablation_plot(dict(by_dataset), output_file)
+    modes = [
+        ("features", ("dataset", "method", "llm_model"), "features"),
+        ("model", ("dataset", "method", "features"), "llm_model"),
+        ("method", ("dataset", "llm_model", "features"), "method"),
+        ("dataset", ("method", "llm_model", "features"), "dataset"),
+    ]
+
+    for mode_name, group_keys, varying_prop in modes:
+        output_path = parent_dir / f"{base_stem}_{mode_name}_{timestamp}{base_suffix}"
+        generate_figure(all_experiments, group_keys, varying_prop, args.dataset, output_path)
 
 
 if __name__ == "__main__":

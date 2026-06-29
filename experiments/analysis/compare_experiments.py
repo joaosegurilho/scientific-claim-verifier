@@ -26,23 +26,31 @@ def load_experiment_results(exp_dir: Path) -> list[dict]:
     results = []
     for metrics_path in sorted(exp_dir.glob("*/summary.json")):
         dataset_method = metrics_path.parent.name
+        dataset = dataset_method.split("_", 1)[0]
         try:
             with open(metrics_path) as f:
                 metrics = json.load(f)
         except (json.JSONDecodeError, FileNotFoundError):
             continue
         eval_metrics = metrics.get("evaluation_metrics") or {}
+        meta = metrics.get("model_metadata") or {}
+        token_usage = metrics.get("token_usage") or {}
         results.append(
             {
                 "path": str(metrics_path.parent),
-                "name": f"{exp_name} ({dataset_method})",
-                "dataset": dataset_method.split("_", 1)[0],
+                "name": f"{exp_name} ({dataset})",
+                "dataset": dataset,
+                "method": metrics.get("method", dataset_method.split("_", 1)[1] if "_" in dataset_method else "N/A"),
+                "llm_model": meta.get("llm_model", "N/A"),
+                "embedding_model": meta.get("embedding_model", "N/A"),
                 "features": features,
                 "accuracy": metrics.get("accuracy", "N/A"),
                 "macro_f1": eval_metrics.get("macro_f1", "N/A"),
                 "total_items": metrics.get("total_items", "N/A"),
                 "successful": metrics.get("successful", "N/A"),
                 "failed": metrics.get("failed", "N/A"),
+                "error_count": metrics.get("error_count", "N/A"),
+                "total_tokens": token_usage.get("total_tokens", "N/A"),
                 "execution_time": metrics.get("execution_time", {}).get("total_formatted", "N/A"),
             }
         )
@@ -53,7 +61,11 @@ def print_comparison_table(results: list[dict]):
     if not results:
         print("No experiment results found.")
         return
-    header = f"{'Name':<35} {'Features':<20} {'Accuracy':<10} {'Macro F1':<10} {'Items':<8} {'Time':<16}"
+    header = (
+        f"{'Name':<30} {'LLM':<14} {'Embedding':<22} {'Tokens':<9} "
+        f"{'Method':<22} {'Features':<16} {'Accuracy':<8} {'F1':<8} "
+        f"{'Items':<6} {'Errors':<7} {'Time':<16}"
+    )
     print("=" * len(header))
     print("Experiment Comparison")
     print("=" * len(header))
@@ -61,9 +73,14 @@ def print_comparison_table(results: list[dict]):
     print("-" * len(header))
     for r in results:
         features = ", ".join(r["features"]) if r["features"] else "none"
+        acc = f"{r['accuracy']:.2%}" if isinstance(r["accuracy"], (int, float)) else str(r["accuracy"])
+        f1 = f"{r['macro_f1']:.4f}" if isinstance(r["macro_f1"], (int, float)) else str(r["macro_f1"])
+        tokens = f"{r['total_tokens']:,}" if isinstance(r["total_tokens"], int) else str(r["total_tokens"])
         print(
-            f"{r['name']:<35} {features:<20} {str(r['accuracy']):<10} {str(r['macro_f1']):<10} "
-            f"{str(r['total_items']):<8} {str(r['execution_time']):<16}"
+            f"{r['name']:<30} {str(r['llm_model']):<14} {str(r['embedding_model']):<22} "
+            f"{tokens:<9} {str(r['method']):<22} {features:<16} "
+            f"{acc:<8} {f1:<8} "
+            f"{str(r['total_items']):<6} {str(r['error_count']):<7} {str(r['execution_time']):<16}"
         )
     print("=" * len(header))
 
@@ -71,7 +88,22 @@ def print_comparison_table(results: list[dict]):
 def export_csv(results: list[dict], path: Path):
     import csv
 
-    fieldnames = ["name", "dataset", "features", "accuracy", "macro_f1", "total_items", "failed", "execution_time"]
+    fieldnames = [
+        "name",
+        "dataset",
+        "method",
+        "llm_model",
+        "embedding_model",
+        "features",
+        "accuracy",
+        "macro_f1",
+        "total_items",
+        "successful",
+        "failed",
+        "error_count",
+        "total_tokens",
+        "execution_time",
+    ]
     with open(path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -80,11 +112,17 @@ def export_csv(results: list[dict], path: Path):
                 {
                     "name": r["name"],
                     "dataset": r["dataset"],
+                    "method": r["method"],
+                    "llm_model": r["llm_model"],
+                    "embedding_model": r["embedding_model"],
                     "features": ", ".join(r["features"]),
                     "accuracy": r["accuracy"],
                     "macro_f1": r["macro_f1"],
                     "total_items": r["total_items"],
+                    "successful": r["successful"],
                     "failed": r["failed"],
+                    "error_count": r["error_count"],
+                    "total_tokens": r["total_tokens"],
                     "execution_time": r["execution_time"],
                 }
             )
@@ -100,9 +138,10 @@ def main():
         default=[],
         help="Filter experiments by name (comma-separated).",
     )
+    parser.add_argument("--exp-dir", type=str, default=None, help="Alternative experiments folder path.")
     args = parser.parse_args()
 
-    results_dir = Path("experiments/results")
+    results_dir = Path(args.exp_dir) if args.exp_dir else Path("experiments/results")
     if not results_dir.exists():
         print("No experiments/results/ directory found.")
         return

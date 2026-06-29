@@ -63,6 +63,7 @@ dev = [
     "ipython",
     "jupyter",
     "pre-commit",
+    "py-spy",
 ]
 
 feat = [

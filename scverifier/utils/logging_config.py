@@ -57,3 +57,6 @@ def configure_logging(
         "google_genai._api_client",  # ignore this also
     ):
         logging.getLogger(lib).setLevel(logging.WARNING)
+
+    for lib in "pydantic":
+        logging.getLogger(lib).setLevel(logging.ERROR)

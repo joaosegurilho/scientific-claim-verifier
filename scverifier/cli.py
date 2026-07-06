@@ -84,7 +84,7 @@ def main():
     bulk_parser.add_argument(
         "--claim-col",
         type=int,
-        default="1",
+        default=1,
         help='The index of the claims column in the dataset (Default: "Claims")',
     )
     bulk_parser.add_argument(
@@ -151,7 +151,7 @@ def main():
 
     logs_dir = Path("logs")
     logs_dir.mkdir(parents=True, exist_ok=True)
-    # cofigures logging for the entire script, pipelines can log to the same file with different loggers
+    # configures logging for the entire script, pipelines can log to the same file with different loggers
     if args.verbose:
         verbose = 1
     elif args.quiet:
@@ -201,8 +201,8 @@ def main():
     elif args.command == "webapp":
         import uvicorn
 
-        print(" Server: http://localhost:8000")
-        print(" Documentation: http://localhost:8000/docs")
+        print(f" Server: http://localhost:{args.port}")
+        print(f" Documentation: http://localhost:{args.port}/docs")
         print("\n" + "=" * 70 + "\n")
 
         uvicorn.run("scverifier.webapp.main:app", host=args.host, port=args.port, reload=True)
@@ -222,6 +222,7 @@ def main():
             id_column=args.id_col,
             method=args.method,
         )
+        # TODO simplify this number of args passed to run()
         bulk.run(
             kb_only=args.kb_only,
             skip_extraction_eval=args.skip_extraction_eval,

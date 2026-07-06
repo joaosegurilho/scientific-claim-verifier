@@ -82,7 +82,7 @@ class BenchmarkRunner:
         benchmark: Benchmark,
         results_dir: Path,
         method: VerificationMethod,
-        resume_dir: Path = None,
+        resume_dir: Optional[Path] = None,
         run_dir: Optional[Path] = None,
     ):
         self.benchmark = benchmark

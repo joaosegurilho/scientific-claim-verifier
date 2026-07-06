@@ -253,13 +253,14 @@ class BulkVerifier:
         else:
             raise ValueError(f"Unsupported output format: {ext}")
 
-    def _get_evidence_titles(self, record):
+    def _get_evidence_titles(self, record) -> tuple[list[str], list[str]]:
         """
         Return a list of evidence titles for a record.
         Prefer `evidence_sources` if present (list or string), otherwise look up
         titles from `papers_used` via the knowledge base.
         """
         titles = []
+        dois = []
         es = record.get("evidence_sources")
         if es:
             if isinstance(es, list):
@@ -270,10 +271,14 @@ class BulkVerifier:
             for pid in record.get("papers_used", []):
                 try:
                     paper = self.kb.get_paper(pid)
-                    titles.append(paper.title if paper else str(pid))
+                    if not es:
+                        titles.append(paper.title if paper else str(pid))
+                    dois.append(paper.doi if paper and paper.doi else "")
                 except Exception:
-                    titles.append(str(pid))
-        return titles
+                    if not es:
+                        titles.append(str(pid))
+                    dois.append("")
+        return titles, dois
 
     # def _save_csv(self, sep=","):
     #     """
@@ -326,7 +331,8 @@ class BulkVerifier:
         mode = "w"
         with open(self.output_path, mode, encoding="utf-8") as f:
             for record in islice(self.data, self.processed_index + 1):
-                titles = self._get_evidence_titles(record)
+                titles, dois = self._get_evidence_titles(record)
+                props = [ev["text"] for ev in record.get("evidence", [])]
                 rec = {
                     "id": record["id"],
                     "claim": record["claim"],
@@ -334,6 +340,8 @@ class BulkVerifier:
                     "confidence": record.get("confidence", ""),
                     "reasoning": record.get("reasoning", ""),
                     "evidence_sources": "; ".join(titles),
+                    "doi_sources": "; ".join(dois),
+                    "prop_sources": "; ".join(props),
                     "evidence_count": record.get("evidence_count", record.get("num_evidence", "")),
                     "token_input": record.get("token_usage", {}).get("input_tokens", ""),
                     "token_output": record.get("token_usage", {}).get("output_tokens", ""),

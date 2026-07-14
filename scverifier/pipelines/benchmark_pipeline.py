@@ -34,7 +34,13 @@ class BenchmarkPipeline:
 
         final_settings_snapshot_path = self.output_path / "settings_snapshot.yaml"
         final_settings_snapshot_path.write_text(
-            yaml.dump({k: getattr(Config, k) for k in dir(Config) if k.isupper() and not k.startswith("_")})
+            yaml.dump(
+                {
+                    k: getattr(Config, k)
+                    for k in dir(Config)
+                    if k.isupper() and not k.startswith("_") and not k.endswith("API_KEY")
+                }
+            )
         )
 
         for bm_item in self.parsed_config.benchmark:

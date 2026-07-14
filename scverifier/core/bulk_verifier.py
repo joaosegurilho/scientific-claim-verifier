@@ -253,7 +253,7 @@ class BulkVerifier:
         else:
             raise ValueError(f"Unsupported output format: {ext}")
 
-    def _get_evidence_titles(self, record) -> tuple[list[str], list[str]]:
+    def _get_evidence_papers(self, record) -> tuple[list[str], list[str]]:
         """
         Return a list of evidence titles for a record.
         Prefer `evidence_sources` if present (list or string), otherwise look up
@@ -261,24 +261,17 @@ class BulkVerifier:
         """
         titles = []
         dois = []
-        es = record.get("evidence_sources")
-        if es:
-            if isinstance(es, list):
-                titles = [str(x) for x in es]
-            else:
-                titles = [str(es)]
-        else:
-            for pid in record.get("papers_used", []):
-                try:
-                    paper = self.kb.get_paper(pid)
-                    if not es:
-                        titles.append(paper.title if paper else str(pid))
-                    dois.append(paper.doi if paper and paper.doi else "")
-                except Exception:
-                    if not es:
-                        titles.append(str(pid))
-                    dois.append("")
-        return titles, dois
+        for pid in record.get("papers_used", []):
+            try:
+                paper = self.kb.get_paper(pid)
+                titles.append(paper.title if paper else str(pid))
+                dois.append(paper.doi if paper and paper.doi else "")
+
+            except Exception:
+                titles.append(str(pid))
+                dois.append("NONE")
+
+        return list(zip(titles, dois))
 
     # def _save_csv(self, sep=","):
     #     """
@@ -331,17 +324,20 @@ class BulkVerifier:
         mode = "w"
         with open(self.output_path, mode, encoding="utf-8") as f:
             for record in islice(self.data, self.processed_index + 1):
-                titles, dois = self._get_evidence_titles(record)
-                props = [ev["text"] for ev in record.get("evidence", [])]
+                evidence = [
+                    {k: v for k, v in d.items() if k not in ("paper_id", "page")} for d in record.get(("evidence"), {})
+                ]
+
                 rec = {
                     "id": record["id"],
                     "claim": record["claim"],
                     "verdict": record.get("verdict", ""),
                     "confidence": record.get("confidence", ""),
                     "reasoning": record.get("reasoning", ""),
-                    "evidence_sources": "; ".join(titles),
-                    "doi_sources": "; ".join(dois),
-                    "prop_sources": "; ".join(props),
+                    "evidence": evidence,
+                    "papers_sources": "; ".join(
+                        [f"{paper[0]} ({paper[1]})" for paper in self._get_evidence_papers(record)]
+                    ),
                     "evidence_count": record.get("evidence_count", record.get("num_evidence", "")),
                     "token_input": record.get("token_usage", {}).get("input_tokens", ""),
                     "token_output": record.get("token_usage", {}).get("output_tokens", ""),
@@ -368,7 +364,7 @@ class BulkVerifier:
                 f.write(f"Verdict: {record.get('verdict', '')}\n")
                 f.write(f"Confidence: {record.get('confidence', '')}\n")
                 f.write(f"Reasoning: {record.get('reasoning', '')}\n")
-                titles = self._get_evidence_titles(record)
+                titles = self._get_evidence_papers(record)
                 f.write(f"Evidence Sources: {', '.join(titles)}\n")
                 f.write(f"Error: {record.get('error', '')}\n")
                 f.write("-" * 80 + "\n")
